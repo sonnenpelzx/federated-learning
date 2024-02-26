@@ -61,11 +61,17 @@ class SynFlow(Pruner):
                 param.mul_(signs[name])
         net = copy.deepcopy(model)
         signs = linearize(net)
+        masked_parameters = list(parameters(net, self.device))
+        for i in range(len(masked_parameters)):
+            _, param = masked_parameters[i]
+            mask, _ = self.mask_parameters[i]
+            with torch.no_grad():
+                param = param * mask
+            param.requires_grad
         net.zero_grad()
         input = torch.ones([1] + input_dimension).to(self.device)#, dtype=torch.float64).to(device)
         output = net(input)
         torch.sum(output).backward()
-        masked_parameters = list(parameters(net, self.device))
         for i in range(len(masked_parameters)):
             _, p = masked_parameters[i]
             _, param = self.mask_parameters[i]
