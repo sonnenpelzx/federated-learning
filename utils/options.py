@@ -37,5 +37,9 @@ def args_parser():
     parser.add_argument('--verbose', action='store_true', help='verbose print')
     parser.add_argument('--seed', type=int, default=1, help='random seed (default: 1)')
     parser.add_argument('--all_clients', action='store_true', help='aggregation over all clients')
+    parser.add_argument('--compression', type=float, default=0.0,
+                        help='quotient of prunable non-zero prunable parameters before and after pruning (default: 1.0)')
+    parser.add_argument('--prune_epochs', type=int, default=1,
+                        help='number of iterations for scoring (default: 1)')
     args = parser.parse_args()
     return args

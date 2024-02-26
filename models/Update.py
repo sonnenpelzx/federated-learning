@@ -8,6 +8,8 @@ from torch.utils.data import DataLoader, Dataset
 import numpy as np
 import random
 from sklearn import metrics
+from pruners.prune import *
+from pruners import pruners
 
 
 class DatasetSplit(Dataset):
@@ -29,12 +31,17 @@ class LocalUpdate(object):
         self.loss_func = nn.CrossEntropyLoss()
         self.selected_clients = []
         self.ldr_train = DataLoader(DatasetSplit(dataset, idxs), batch_size=self.args.local_bs, shuffle=True)
+    def prune(self, net):
+        pruner = pruners.Mag()
+        sparsity = 10**(-float(self.args.compression))
+        print(sparsity)
+        prune(pruner, sparsity, self.args.device, self.args.prune_epochs, net)
 
     def train(self, net):
         net.train()
+        self.prune(net)
         # train and update
         optimizer = torch.optim.SGD(net.parameters(), lr=self.args.lr, momentum=self.args.momentum)
-
         epoch_loss = []
         for iter in range(self.args.local_ep):
             batch_loss = []
