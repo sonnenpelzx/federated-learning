@@ -41,5 +41,8 @@ def args_parser():
                         help='quotient of prunable non-zero prunable parameters before and after pruning (default: 1.0)')
     parser.add_argument('--prune_epochs', type=int, default=1,
                         help='number of iterations for scoring (default: 1)')
+    parser.add_argument('--pruner', type=str, default='mag', 
+                        choices=['mag','synflow'],
+                        help='prune strategy (default: mag)')
     args = parser.parse_args()
     return args

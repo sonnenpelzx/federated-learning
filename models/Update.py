@@ -31,11 +31,17 @@ class LocalUpdate(object):
         self.loss_func = nn.CrossEntropyLoss()
         self.selected_clients = []
         self.ldr_train = DataLoader(DatasetSplit(dataset, idxs), batch_size=self.args.local_bs, shuffle=True)
+    
     def prune(self, net):
-        pruner = pruners.Mag()
-        sparsity = 10**(-float(self.args.compression))
-        print(sparsity)
-        prune(pruner, sparsity, self.args.device, self.args.prune_epochs, net)
+        (data, _) = next(iter(self.ldr_train))
+        prune_methods = {
+                'mag' : pruners.Mag,
+                'synflow' : pruners.SynFlow,
+            }
+        input_dim = list(data[0,:].shape)
+        print(self.args.pruner)
+        pruner = prune_methods[self.args.pruner](net, self.args.device)
+        prune(pruner, self.args.compression, self.args.prune_epochs, net, input_dim)
 
     def train(self, net):
         net.train()
