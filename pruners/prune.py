@@ -10,5 +10,5 @@ def prune(pruner, compression, epochs, model, input_dimension):
         pruner.mask(sparsity)
     pruner.prune()
     remaining_params, total_params = pruner.stats()
-    if np.abs(remaining_params - total_params * (1-sparsity)) >= 5:
-        print(remaining_params, total_params, total_params*sparsity)
+    # if np.abs(remaining_params - total_params * (1-sparsity)) >= 5:
+    print(remaining_params, total_params, total_params*sparsity)
