@@ -13,21 +13,27 @@ class MLP(nn.Module):
         torch.cuda.manual_seed(0)
         torch.backends.cudnn.deterministic = True
         super(MLP, self).__init__()
-        self.layer_input = nn.Linear(dim_in, dim_hidden)
-        self.relu = nn.ReLU()
-        self.dropout = nn.Dropout()
-        self.layer_hidden = nn.Linear(dim_hidden, dim_out)
+        self.layers = nn.Sequential(
+            nn.Linear(dim_in, int(dim_hidden*2), False),
+            nn.ReLU(),
+            nn.Linear(int(dim_hidden*2), int(dim_hidden), False),
+            nn.ReLU(),
+            nn.Linear(int(dim_hidden), int(dim_hidden * 0.25), False),
+            nn.ReLU(),
+            nn.Linear(int(dim_hidden* 0.25), int(dim_hidden * 0.5), False),
+            nn.ReLU(),
+            nn.Linear(int(dim_hidden*0.5), int(dim_hidden), False),
+            nn.ReLU(),
+            nn.Dropout(),
+            nn.Linear(dim_hidden, dim_out, False)
+        )
 
     def forward(self, x):
         torch.manual_seed(0)
         torch.cuda.manual_seed(0)
         torch.backends.cudnn.deterministic = True
         x = x.view(-1, x.shape[1]*x.shape[-2]*x.shape[-1])
-        x = self.layer_input(x)
-        x = self.dropout(x)
-        x = self.relu(x)
-        x = self.layer_hidden(x)
-        return x
+        return self.layers(x)
 
 
 class CNNMnist(nn.Module):

@@ -10,7 +10,8 @@ import random
 from sklearn import metrics
 from pruners.prune import *
 from pruners import pruners
-
+import copy
+from utils.prune_parameters import *
 
 class DatasetSplit(Dataset):
     def __init__(self, dataset, idxs):
@@ -33,6 +34,7 @@ class LocalUpdate(object):
         self.ldr_train = DataLoader(DatasetSplit(dataset, idxs), batch_size=self.args.local_bs, shuffle=True)
     
     def prune(self, net):
+        net.eval()
         (data, _) = next(iter(self.ldr_train))
         prune_methods = {
                 'mag' : pruners.Mag,
@@ -42,11 +44,23 @@ class LocalUpdate(object):
         print(self.args.pruner)
         pruner = prune_methods[self.args.pruner](net, self.args.device)
         prune(pruner, self.args.compression, self.args.prune_epochs, net, input_dim)
+        net.train()
+    def test(self, net):
+        net.zero_grad()
+        (data, _) = next(iter(self.ldr_train))
+        input_dim = list(data[0,:].shape)
+        input1 = torch.ones([1] + input_dim).to(self.args.device)#, dtype=torch.float64).to(device)
+        output1 = net(input1)
+        net.zero_grad()
+        input2 = torch.mul(input1, 2)
+        outpus2 = net(input2)
+        print(torch.eq(output1, outpus2))
 
     def train(self, net):
         net.train()
-        self.prune(net)
         # train and update
+        self.prune(net)
+        self.test(net)
         optimizer = torch.optim.SGD(net.parameters(), lr=self.args.lr, momentum=self.args.momentum)
         epoch_loss = []
         for iter in range(self.args.local_ep):

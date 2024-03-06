@@ -20,6 +20,9 @@ from models.Update import LocalUpdate
 from models.Nets import MLP, CNNMnist, CNNCifar
 from models.Fed import FedAvg
 from models.test import test_img
+import torch.nn as nn
+import torch.optim as optim
+import torchvision.models as models
 
 
 if __name__ == '__main__':
@@ -27,19 +30,20 @@ if __name__ == '__main__':
     args = args_parser()
     args.device = torch.device('cuda:{}'.format(args.gpu) if torch.cuda.is_available() and args.gpu != -1 else 'cpu')
 
-    iters = 25
+    iters = 30
     compression = 1
-    alphas = [i/4 for i in range(iters)]
+    alphas = [i/5 for i in range(10, iters)]
     # seeds = [0,99,345]
     seeds = [0]
     x_vals = [10**alpha for alpha in alphas]
+    #x_vals = [30000, 2000, 5000, 10000, 20000, 30000]
     y_vals = {'mag': [], 'synflow': []}
 
-    for i in range(iters):
+    for c in x_vals:
       for seed in seeds:
         for pruner in ('synflow', 'mag'):
             args.pruner = pruner
-            args.compression = 10**alphas[i]
+            args.compression = c
 
             # load dataset and split users
             if args.dataset == 'mnist':
@@ -66,6 +70,12 @@ if __name__ == '__main__':
             # build model
             if args.model == 'cnn' and args.dataset == 'cifar':
                 net_glob = CNNCifar(args=args).to(args.device)
+                #model = models.vgg16(weights = None)
+
+                # Step 4: Modify last layer
+                #num_classes = 10  # CIFAR-10 has 10 classes
+                #model.classifier[-1] = nn.Linear(in_features=4096, out_features=num_classes)
+                #net_glob = model.to(args.device)
             elif args.model == 'cnn' and args.dataset == 'mnist':
                 net_glob = CNNMnist(args=args).to(args.device)
             elif args.model == 'mlp':
@@ -98,7 +108,7 @@ if __name__ == '__main__':
                 if not args.all_clients:
                     w_locals = []
                 m = max(int(args.frac * args.num_users), 1)
-                idxs_users = np.random.choice(range(args.num_users), m, replace=False)
+                idxs_users = [0]
                 for idx in idxs_users:
                     local = LocalUpdate(args=args, dataset=dataset_train, idxs=dict_users[idx])
                     w, loss = local.train(net=copy.deepcopy(net_glob).to(args.device))
@@ -132,14 +142,15 @@ if __name__ == '__main__':
             print("Testing accuracy: {:.2f}".format(acc_test))
 
             y_vals[args.pruner].append(acc_test)
+            #y_vals[args.pruner].append(0)
 
     print('synflow test accuracy: ', y_vals['synflow'])
     print('mag test accuracy: ', y_vals['mag'])
     # Plot both charts on the same axis
     plt.figure()
     plt.xscale('log')
-    plt.plot(x_vals[:iters], y_vals['synflow'], label='Synflow', linestyle='-', marker='o', color='r')
-    plt.plot(x_vals[:iters], y_vals['mag'], label='Mag', linestyle='-', marker='o', color='b')
+    plt.plot(x_vals, y_vals['synflow'], label='Synflow', linestyle='-', marker='o', color='r')
+    plt.plot(x_vals, y_vals['mag'], label='Mag', linestyle='-', marker='o', color='b')
 
     # Add labels and title
     plt.xlabel('X-axis')
@@ -153,5 +164,5 @@ if __name__ == '__main__':
     # plt.show()
 
     # Save plot
-    plt.savefig('../save/test.png'.format())
+    plt.savefig('../save/synflow_test_{}_{}_{}.png'.format(args.prune_epochs, args.dataset, args.model))
 
