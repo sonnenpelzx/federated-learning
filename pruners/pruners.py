@@ -35,7 +35,51 @@ class Mag(Pruner):
     def __init__(self, net, device):
         super(Mag, self).__init__(net, device)
 
-    def score(self, net, input_dim):
+    def score(self, net, input_dim, t=0):
+        for _, p in self.mask_parameters:
+            self.scores[id(p)] = torch.clone(p.data).detach().abs_()
+        
+        #print R_SF = "sum of output when input is all ones and |W|"
+        if t == 1:
+            @torch.no_grad()
+            def linearize(model):
+                #model.double()
+                signs = {}
+                for name, param in model.state_dict().items():
+                    signs[name] = torch.sign(param)
+                    param.abs_()
+                return signs
+
+            copy_net = copy.deepcopy(net)
+            copy_net.eval()
+            signs = linearize(copy_net)
+            masked_parameters_copy = list(parameters(copy_net, self.device))
+            for i in range(len(masked_parameters_copy)):
+                _, param = masked_parameters_copy[i]
+                mask, _= self.mask_parameters[i]
+                with torch.no_grad():
+                    param.mul_(mask)
+                param.requires_grad
+                #if test(copy_net, input_dim):
+                    #t = 1
+            remaining_params, total_params = self.stats()
+            copy_net.zero_grad()
+            input = torch.ones([1] + input_dim).to(self.device)#, dtype=torch.float64).to(device)
+            output = copy_net(input)
+            print(np.sum((output).clone().detach().cpu().numpy()))
+
+class FedSpa(Pruner):
+    def __init__(self, net, device):
+        super(FedSpa, self).__init__(net, device)
+
+    def use_mask(self, net, mask):
+        for i in range(len(self.mask_parameters)):
+            mask_p, param = self.mask_parameters[i]
+            m = mask[i]
+            mask_p = m
+            with torch.no_grad():
+                param.mul_(m)
+    def score(self, net, input_dim, t=0):
         for _, p in self.mask_parameters:
             self.scores[id(p)] = torch.clone(p.data).detach().abs_()
 
@@ -43,17 +87,7 @@ class SynFlow(Pruner):
     def __init__(self, net, device):
         super(SynFlow, self).__init__(net, device)
 
-    def score(self, net, input_dim):
-        
-        def test(net, input_dim):
-            net.zero_grad()
-            input1 = torch.ones([1] + input_dim).to(self.device)#, dtype=torch.float64).to(device)
-            output1 = net(input1)
-            net.zero_grad()
-            input2 = torch.mul(input1, 2)
-            output2 = net(input2)
-            e = torch.eq(output1, output2).all().item()
-            return e
+    def score(self, net, input_dim, t = 0):
         @torch.no_grad()
         def linearize(model):
             #model.double()
@@ -66,26 +100,28 @@ class SynFlow(Pruner):
         copy_net = copy.deepcopy(net)
         copy_net.eval()
         signs = linearize(copy_net)
-        masked_parameters_copy = list(parameters(copy_net, self.device))
-        t = 0
-        for i in range(len(masked_parameters_copy)):
-            _, param = masked_parameters_copy[i]
+        mask_parameters_copy = list(parameters(copy_net, self.device))
+        for i in range(len(mask_parameters_copy)):
+            _, param = mask_parameters_copy[i]
             mask, _= self.mask_parameters[i]
             with torch.no_grad():
                 param.mul_(mask)
             param.requires_grad
-            if test(copy_net, input_dim):
-                t = 1
+            #if test(copy_net, input_dim):
+                #t = 1
         remaining_params, total_params = self.stats()
         copy_net.zero_grad()
         input = torch.ones([1] + input_dim).to(self.device)#, dtype=torch.float64).to(device)
         output = copy_net(input)
         torch.sum(output).backward()
-        for i in range(len(masked_parameters_copy)):
-            _, p = masked_parameters_copy[i]
+        if np.sum((output).clone().detach().cpu().numpy()) == 0 or t == 1:
+            print(np.sum((output).clone().detach().cpu().numpy()))
+            t = 1   
+        for i in range(len(mask_parameters_copy)):
+            _, p = mask_parameters_copy[i]
             mask, param= self.mask_parameters[i]
-            if t == 1:
-                print("layer", i)
-                print(remaining_params, total_params)
-                print()
+            #if t == 1:
+                #print("layer", i)
+                #print(remaining_params, total_params)
+                #print()
             self.scores[id(param)] = torch.clone(p.grad * p).detach().abs_() 

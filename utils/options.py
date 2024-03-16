@@ -42,7 +42,7 @@ def args_parser():
     parser.add_argument('--prune_epochs', type=int, default=1,
                         help='number of iterations for scoring (default: 1)')
     parser.add_argument('--pruner', type=str, default='mag', 
-                        choices=['mag','synflow'],
+                        choices=['mag','synflow', 'fedspa'],
                         help='prune strategy (default: mag)')
     args = parser.parse_args()
     return args

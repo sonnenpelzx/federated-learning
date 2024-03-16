@@ -23,25 +23,26 @@ from models.test import test_img
 import torch.nn as nn
 import torch.optim as optim
 import torchvision.models as models
-
+from utils.prune_parameters import *
+from numpy import random
 
 if __name__ == '__main__':
     # parse args
     args = args_parser()
     args.device = torch.device('cuda:{}'.format(args.gpu) if torch.cuda.is_available() and args.gpu != -1 else 'cpu')
 
-    iters = 30
+    iters = 6
     compression = 1
-    alphas = [i/5 for i in range(10, iters)]
+    alphas = [i/3 for i in range(0, iters)]
     # seeds = [0,99,345]
     seeds = [0]
     x_vals = [10**alpha for alpha in alphas]
-    #x_vals = [30000, 2000, 5000, 10000, 20000, 30000]
-    y_vals = {'mag': [], 'synflow': []}
+    # _vals = [2000]
+    y_vals = {'mag': [], 'synflow': [], 'fedspa': []}
 
     for c in x_vals:
       for seed in seeds:
-        for pruner in ('synflow', 'mag'):
+        for pruner in ('fedspa', 'mag'):#'synflow', 'mag'):
             args.pruner = pruner
             args.compression = c
 
@@ -98,6 +99,7 @@ if __name__ == '__main__':
             net_best = None
             best_loss = None
             val_acc_list, net_list = [], []
+            masks = [randomMask(net_glob, args.device, args.compression) for _ in range(args.num_users)]
 
             if args.all_clients: 
                 print("Aggregation over all clients")
@@ -111,7 +113,8 @@ if __name__ == '__main__':
                 idxs_users = [0]
                 for idx in idxs_users:
                     local = LocalUpdate(args=args, dataset=dataset_train, idxs=dict_users[idx])
-                    w, loss = local.train(net=copy.deepcopy(net_glob).to(args.device))
+                    w, loss, mask = local.train(net=copy.deepcopy(net_glob).to(args.device), mask=masks[idx])
+                    masks[idx] = mask
                     if args.all_clients:
                         w_locals[idx] = copy.deepcopy(w)
                     else:
@@ -151,11 +154,12 @@ if __name__ == '__main__':
     plt.xscale('log')
     plt.plot(x_vals, y_vals['synflow'], label='Synflow', linestyle='-', marker='o', color='r')
     plt.plot(x_vals, y_vals['mag'], label='Mag', linestyle='-', marker='o', color='b')
+    plt.plot(x_vals, y_vals['fedspa'], label='FedSpa', linestyle='-', marker='o', color='g')
 
     # Add labels and title
     plt.xlabel('X-axis')
     plt.ylabel('Y-axis')
-    plt.title('Synflow vs Mag')
+    plt.title('Synflow vs Mag vs Synflow')
 
     # Add legend
     plt.legend()
@@ -164,5 +168,5 @@ if __name__ == '__main__':
     # plt.show()
 
     # Save plot
-    plt.savefig('../save/synflow_test_{}_{}_{}.png'.format(args.prune_epochs, args.dataset, args.model))
+    plt.savefig('../save/synflow_test_{}_{}_{}_{}.png'.format(args.prune_epochs, args.dataset, args.model, random.randint(100)))
 
