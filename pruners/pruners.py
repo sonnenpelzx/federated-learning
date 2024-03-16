@@ -76,7 +76,7 @@ class FedSpa(Pruner):
         for i in range(len(self.mask_parameters)):
             mask_p, param = self.mask_parameters[i]
             m = mask[i]
-            mask_p = m
+            mask_p.copy_(m)
             with torch.no_grad():
                 param.mul_(m)
     def score(self, net, input_dim, t=0):

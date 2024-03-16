@@ -48,7 +48,7 @@ class LocalUpdate(object):
             pruner.use_mask(net, mask)
             remaining_params, total_params = pruner.stats()
             # if np.abs(remaining_params - total_params * (1-sparsity)) >= 5:
-            print(remaining_params, total_params, total_params*(1-self.args.compression))
+            print(remaining_params, total_params, total_params*(1-self.args.compression**(-1)),(1-self.args.compression**(-1)))
         else:
             prune(pruner, self.args.compression, self.args.prune_epochs, net, input_dim)
         net.train()

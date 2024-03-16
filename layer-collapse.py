@@ -33,7 +33,7 @@ if __name__ == '__main__':
 
     iters = 6
     compression = 1
-    alphas = [i/3 for i in range(0, iters)]
+    alphas = [i/3 for i in range(1, iters)]
     # seeds = [0,99,345]
     seeds = [0]
     x_vals = [10**alpha for alpha in alphas]
