@@ -72,13 +72,41 @@ class FedSpa(Pruner):
     def __init__(self, net, device):
         super(FedSpa, self).__init__(net, device)
 
-    def use_mask(self, net, mask):
+    def use_mask(self, net, input_dim, mask):
         for i in range(len(self.mask_parameters)):
             mask_p, param = self.mask_parameters[i]
             m = mask[i]
             mask_p.copy_(m)
             with torch.no_grad():
                 param.mul_(m)
+        
+        @torch.no_grad()
+        def linearize(model):
+            #model.double()
+            signs = {}
+            for name, param in model.state_dict().items():
+                signs[name] = torch.sign(param)
+                param.abs_()
+            return signs
+
+        copy_net = copy.deepcopy(net)
+        copy_net.eval()
+        signs = linearize(copy_net)
+        masked_parameters_copy = list(parameters(copy_net, self.device))
+        for i in range(len(masked_parameters_copy)):
+            _, param = masked_parameters_copy[i]
+            mask, _= self.mask_parameters[i]
+            with torch.no_grad():
+                param.mul_(mask)
+            param.requires_grad
+            #if test(copy_net, input_dim):
+                #t = 1
+        remaining_params, total_params = self.stats()
+        copy_net.zero_grad()
+        input = torch.ones([1] + input_dim).to(self.device)#, dtype=torch.float64).to(device)
+        output = copy_net(input)
+        print("layer collapse if = 0")
+        print(np.sum((output).clone().detach().cpu().numpy()))
     def score(self, net, input_dim, t=0):
         for _, p in self.mask_parameters:
             self.scores[id(p)] = torch.clone(p.data).detach().abs_()
