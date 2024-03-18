@@ -157,9 +157,9 @@ if __name__ == '__main__':
     plt.plot(x_vals, y_vals['fedspa'], label='FedSpa', linestyle='-', marker='o', color='g')
 
     # Add labels and title
-    plt.xlabel('X-axis')
-    plt.ylabel('Y-axis')
-    plt.title('Synflow vs Mag vs Synflow')
+    plt.xlabel('Compression')
+    plt.ylabel('Top-1 Accuracy')
+    plt.title('Synflow vs Mag vs FedSpa')
 
     # Add legend
     plt.legend()
