@@ -13,7 +13,6 @@ def parameters(model, device):
 
 def randomMask(model, device, compression):
     sparsity = 1.0 - (compression**(-1))
-    print(sparsity)
     masks = []
     for module in filter(lambda p: prunable(p), model.modules()):
         for param in module.parameters(recurse=False):
@@ -31,8 +30,4 @@ def randomMask(model, device, compression):
         one = torch.tensor([1.]).to(device)
         m.copy_(torch.where(m <= threshold, zero, one))
     
-    remaining_params = 0
-    for mask in masks: 
-        remaining_params += mask.detach().cpu().numpy().sum()
-    print(remaining_params )
     return masks

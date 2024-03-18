@@ -31,9 +31,9 @@ if __name__ == '__main__':
     args = args_parser()
     args.device = torch.device('cuda:{}'.format(args.gpu) if torch.cuda.is_available() and args.gpu != -1 else 'cpu')
 
-    iters = 6
+    iters = 30
     compression = 1
-    alphas = [i/3 for i in range(1, iters)]
+    alphas = [i/5 for i in range(0, iters)]
     # seeds = [0,99,345]
     seeds = [0]
     x_vals = [10**alpha for alpha in alphas]
@@ -42,7 +42,7 @@ if __name__ == '__main__':
 
     for c in x_vals:
       for seed in seeds:
-        for pruner in ('fedspa', 'mag'):#'synflow', 'mag'):
+        for pruner in ('fedspa', 'mag', 'synflow'):
             args.pruner = pruner
             args.compression = c
 
@@ -168,5 +168,5 @@ if __name__ == '__main__':
     # plt.show()
 
     # Save plot
-    plt.savefig('../save/synflow_test_{}_{}_{}_{}.png'.format(args.prune_epochs, args.dataset, args.model, random.randint(100)))
+    plt.savefig('../save/synflow_test_{}_{}_{}_{}_{}_{}_{}.png'.format(args.prune_epochs, args.dataset, args.model, args.iid, args.frac, args.num_users, args.epochs))
 
