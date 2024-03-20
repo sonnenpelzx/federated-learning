@@ -93,6 +93,11 @@ if __name__ == '__main__':
 
     for c in x_vals:
       for seed in seeds:
+        # set random seed
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed(seed)
+        torch.backends.cudnn.deterministic = True
         for pruner in ('fedspa', 'mag', 'synflow'):
             args.pruner = pruner
             args.compression = c
@@ -156,7 +161,7 @@ if __name__ == '__main__':
             if args.all_clients: 
                 print("Aggregation over all clients")
                 w_locals = [w_glob for i in range(args.num_users)]
-            np.random.seed(0)
+
             for iter in range(args.epochs):
                 loss_locals = []
                 if not args.all_clients:

@@ -42,6 +42,11 @@ if __name__ == '__main__':
 
     for c in x_vals:
       for seed in seeds:
+        # set random seed
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed(seed)
+        torch.backends.cudnn.deterministic = True
         for pruner in ('fedspa', 'mag', 'synflow'):
             args.pruner = pruner
             args.compression = c

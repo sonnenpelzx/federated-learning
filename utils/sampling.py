@@ -13,7 +13,6 @@ def mnist_iid(dataset, num_users):
     :param num_users:
     :return: dict of image index
     """
-    np.random.seed(0)
     num_items = int(len(dataset)/num_users)
     dict_users, all_idxs = {}, [i for i in range(len(dataset))]
     for i in range(num_users):
@@ -29,7 +28,6 @@ def mnist_noniid(dataset, num_users):
     :param num_users:
     :return:
     """
-    np.random.seed(0)
     num_shards, num_imgs = 200, 300
     idx_shard = [i for i in range(num_shards)]
     dict_users = {i: np.array([], dtype='int64') for i in range(num_users)}
@@ -58,7 +56,6 @@ def cifar_iid(dataset, num_users):
     :param num_users:
     :return: dict of image index
     """
-    np.random.seed(0)
     num_items = int(len(dataset)/num_users)
     dict_users, all_idxs = {}, [i for i in range(len(dataset))]
     for i in range(num_users):
