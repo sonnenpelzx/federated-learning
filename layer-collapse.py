@@ -110,7 +110,7 @@ if __name__ == '__main__':
                 if not args.all_clients:
                     w_locals = []
                 m = max(int(args.frac * args.num_users), 1)
-                idxs_users = [0]
+                idxs_users = np.random.choice(range(args.num_users), m, replace=False)
                 for idx in idxs_users:
                     local = LocalUpdate(args=args, dataset=dataset_train, idxs=dict_users[idx])
                     w, loss, mask = local.train(net=copy.deepcopy(net_glob).to(args.device), mask=masks[idx])
@@ -168,5 +168,5 @@ if __name__ == '__main__':
     # plt.show()
 
     # Save plot
-    plt.savefig('../save/synflow_test_{}_{}_{}_{}_{}_{}_{}.png'.format(args.prune_epochs, args.dataset, args.model, args.iid, args.frac, args.num_users, args.epochs))
+    plt.savefig('../save/simplefedspa_test_{}_{}_{}_{}_{}_{}_{}.png'.format(args.prune_epochs, args.dataset, args.model, args.iid, args.frac, args.num_users, args.epochs))
 
