@@ -72,6 +72,8 @@ class LocalUpdate(object):
         net.train()
         # train and update
         mask = self.prune(net, mask)
+        # print(len(mask), mask[0].size())
+        # print(mask)
         #self.test(net)
         optimizer = torch.optim.SGD(net.parameters(), lr=self.args.lr, momentum=self.args.momentum)
         epoch_loss = []
