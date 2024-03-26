@@ -3,6 +3,7 @@
 # Python version: 3.6
 
 
+import os
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -10,6 +11,7 @@ import copy
 import numpy as np
 from torchvision import datasets, transforms
 import torch
+import datetime
 
 import sys
 sys.path.append('../')
@@ -18,7 +20,7 @@ from utils.sampling import mnist_iid, mnist_noniid, cifar_iid
 from utils.options import args_parser
 from models.Update import LocalUpdate
 from models.Nets import MLP, CNNMnist, CNNCifar
-from models.Fed import FedAvg
+from models.Fed import FedAvg, GlobalAvg
 from models.test import test_img
 import torch.nn as nn
 import torch.optim as optim
@@ -26,31 +28,79 @@ import torchvision.models as models
 from utils.prune_parameters import *
 from numpy import random
 
+
+def similarity_score(u: int,v: int, w_locals) -> float:
+    """
+    Calculate the similarity score between two clients based on the Euclidean distance.
+
+    Args:
+        u (int): Index of the first client.
+        v (int): Index of the second client.
+        w_locals: The weights of each client
+
+    Returns:
+        float: The similarity score between the two clients based on the Euclidean distance.
+    """
+    # print('locals: ', len(w_locals), type(w_locals), w_locals[:2])
+    w_u, w_v = w_locals[u], w_locals[v] 
+    diference_vector = torch.tensor([])
+    for k in w_u.keys():
+        # print('size k', k, w_u[k].size())
+        diference_vector = torch.cat((diference_vector, torch.flatten(w_u[k]) - torch.flatten(w_v[k])), dim=0)
+    distance = torch.norm(diference_vector)
+    # print(u, v, 'distance', distance)
+    # print('w_v', u, v, type(w_v), w_v.keys())
+    # print('w_v layer 0',  type(w_v['layers.0.weight']), w_v['layers.0.weight'] )
+    return -distance
+
+def similarity_based_compensation(w_locals, users_received, args):
+    similarity_matrix = [i for i in range(len(w_locals))]
+    for u in range(args.num_users):
+        if u in users_received:
+            continue
+
+        # find the most similar received / updated user
+        most_similar = users_received[0]
+        for neighbor in users_received:
+            # print('u, v, most_similar', u, neighbor, most_similar, similarity_score(u, neighbor, w_locals), similarity_score(u, most_similar, w_locals))
+            if similarity_score(u, neighbor, w_locals) > similarity_score(u, most_similar, w_locals):
+                most_similar = neighbor
+
+        # update the similarity matrix
+        similarity_matrix[u] = most_similar
+    print(similarity_matrix)
+    return similarity_matrix
+            
+
+
+
+
+    return w_locals
+
 if __name__ == '__main__':
     # parse args
     args = args_parser()
     args.device = torch.device('cuda:{}'.format(args.gpu) if torch.cuda.is_available() and args.gpu != -1 else 'cpu')
 
-    iters = 20
+    iters = 5
     compression = 1
-    alphas = [i/10 for i in range(1, iters)]
+    alphas = [i/5 for i in range(0, iters)]
     # seeds = [0,99,345]
     seeds = [0]
     x_vals = [10**alpha for alpha in alphas]
-    #x_vals = [2, 2.4, 2.6, 2.8, 3, 3.4]
+    # _vals = [2000]
     y_vals = {'mag': [], 'synflow': [], 'fedspa': []}
 
-    for c in range(len(x_vals)):
-      print(c, "/", iters)
+    for c in x_vals:
       for seed in seeds:
         # set random seed
         np.random.seed(seed)
         torch.manual_seed(seed)
         torch.cuda.manual_seed(seed)
         torch.backends.cudnn.deterministic = True
-        for pruner in ['fedspa', 'mag', 'synflow']:
+        for pruner in ('fedspa', 'mag', 'synflow'):
             args.pruner = pruner
-            args.compression = x_vals[c]
+            args.compression = c
 
             # load dataset and split users
             if args.dataset == 'mnist':
@@ -105,24 +155,24 @@ if __name__ == '__main__':
             net_best = None
             best_loss = None
             val_acc_list, net_list = [], []
-            mask_initialization = randomMask(net_glob, args.device, args.compression)
-            masks = [ copy.deepcopy(mask_initialization) for _ in range(args.num_users)]
+            masks = [randomMask(net_glob, args.device, args.compression) for _ in range(args.num_users)]
+            print('mask', len(masks), len(masks[0]), type(masks[0]), masks[0][0].size()) # Shape = 100 x 6 x 400 x 3072
 
             if args.all_clients: 
                 print("Aggregation over all clients")
                 w_locals = [w_glob for i in range(args.num_users)]
-            np.random.seed(0)
-            print("pruner:",  args.pruner)
-            print("sparsity: ", 1- args.compression**(-1))
+
             for iter in range(args.epochs):
                 loss_locals = []
                 if not args.all_clients:
                     w_locals = []
                 m = max(int(args.frac * args.num_users), 1)
                 idxs_users = np.random.choice(range(args.num_users), m, replace=False)
+                print('RANDOM USER INDICES', idxs_users)
                 for idx in idxs_users:
                     local = LocalUpdate(args=args, dataset=dataset_train, idxs=dict_users[idx])
-                    w, loss, mask = local.train(net=copy.deepcopy(net_glob).to(args.device), mask=masks[idx], train_iter=iter)
+                    w, loss, mask = local.train(net=copy.deepcopy(net_glob).to(args.device), mask=masks[idx])
+                    # print(w.keys())
                     masks[idx] = mask
                     if args.all_clients:
                         w_locals[idx] = copy.deepcopy(w)
@@ -130,7 +180,10 @@ if __name__ == '__main__':
                         w_locals.append(copy.deepcopy(w))
                     loss_locals.append(copy.deepcopy(loss))
                 # update global weights
-                w_glob = FedAvg(w_locals)
+                # similarity logic
+                similarity_matrix = similarity_based_compensation(w_locals, users_received=idxs_users, args=args)
+                w_glob = GlobalAvg(w_locals, similarity_matrix)
+                # w_glob = FedAvg(w_locals)
 
                 # copy weight to net_glob
                 net_glob.load_state_dict(w_glob)
@@ -177,5 +230,17 @@ if __name__ == '__main__':
     # plt.show()
 
     # Save plot
-    plt.savefig('../save/advancedfedspa_test_{}_{}_{}_{}_{}_{}_{}.png'.format(args.prune_epochs, args.dataset, args.model, args.iid, args.frac, args.num_users, args.epochs))
+    # Get the current date and time
+    now = datetime.datetime.now()
+    date = now.strftime("%Y_%m_%d")
+    time = now.strftime("%H_%M_%S")
+
+    # Create the directory if it doesn't exist
+    save_dir = f"../save/{date}"
+    os.makedirs(save_dir, exist_ok=True)
+
+    # Save the plot
+    plt.savefig(f"{save_dir}/similarity_test_{args.prune_epochs}_{args.dataset}_{args.model}_{args.frac}_{time}.png")
+    # plt.savefig('../save/synflow_test_{}_{}_{}_{}_{}_{}_{}.png'.format(args.prune_epochs, args.dataset, args.model, args.iid, args.frac, args.num_users, args.epochs))
+
 

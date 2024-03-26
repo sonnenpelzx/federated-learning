@@ -9,9 +9,6 @@ import torch.nn.functional as F
 
 class MLP(nn.Module):
     def __init__(self, dim_in, dim_hidden, dim_out):
-        torch.manual_seed(0)
-        torch.cuda.manual_seed(0)
-        torch.backends.cudnn.deterministic = True
         super(MLP, self).__init__()
         self.layers = nn.Sequential(
             nn.Linear(dim_in, int(dim_hidden*2), False),
@@ -29,18 +26,12 @@ class MLP(nn.Module):
         )
 
     def forward(self, x):
-        torch.manual_seed(0)
-        torch.cuda.manual_seed(0)
-        torch.backends.cudnn.deterministic = True
         x = x.view(-1, x.shape[1]*x.shape[-2]*x.shape[-1])
         return self.layers(x)
 
 
 class CNNMnist(nn.Module):
     def __init__(self, args):
-        torch.manual_seed(0)
-        torch.cuda.manual_seed(0)
-        torch.backends.cudnn.deterministic = True
         super(CNNMnist, self).__init__()
         self.conv1 = nn.Conv2d(args.num_channels, 10, kernel_size=5)
         self.conv2 = nn.Conv2d(10, 20, kernel_size=5)
@@ -49,9 +40,6 @@ class CNNMnist(nn.Module):
         self.fc2 = nn.Linear(50, args.num_classes)
 
     def forward(self, x):
-        torch.manual_seed(0)
-        torch.cuda.manual_seed(0)
-        torch.backends.cudnn.deterministic = True
         x = F.relu(F.max_pool2d(self.conv1(x), 2))
         x = F.relu(F.max_pool2d(self.conv2_drop(self.conv2(x)), 2))
         x = x.view(-1, x.shape[1]*x.shape[2]*x.shape[3])
@@ -63,9 +51,6 @@ class CNNMnist(nn.Module):
 
 class CNNCifar(nn.Module):
     def __init__(self, args):
-        torch.manual_seed(0)
-        torch.cuda.manual_seed(0)
-        torch.backends.cudnn.deterministic = True
         super(CNNCifar, self).__init__()
         self.conv1 = nn.Conv2d(3, 6, 5)
         self.pool = nn.MaxPool2d(2, 2)
@@ -75,9 +60,6 @@ class CNNCifar(nn.Module):
         self.fc3 = nn.Linear(84, args.num_classes)
 
     def forward(self, x):
-        torch.manual_seed(0)
-        torch.cuda.manual_seed(0)
-        torch.backends.cudnn.deterministic = True
         x = self.pool(F.relu(self.conv1(x)))
         x = self.pool(F.relu(self.conv2(x)))
         x = x.view(-1, 16 * 5 * 5)

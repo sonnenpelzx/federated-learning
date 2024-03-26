@@ -14,3 +14,9 @@ def FedAvg(w):
             w_avg[k] += w[i][k]
         w_avg[k] = torch.div(w_avg[k], len(w))
     return w_avg
+
+def GlobalAvg(w, similarity_matrix):
+    w = copy.deepcopy(w) # not sure if this is necessary
+    for u in range(len(w)):
+        w[u] = w[similarity_matrix[u]]
+    return FedAvg(w)
