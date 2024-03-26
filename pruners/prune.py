@@ -11,8 +11,7 @@ def prune(pruner, compression, prune_epochs, net, input_dim):
         #print(sparsity)
         pruner.mask(sparsity)
     pruner.prune()
-    print("Layer Collapse if = 0")
     pruner.score(net, input_dim, t=1)
     remaining_params, total_params = pruner.stats()
-    # if np.abs(remaining_params - total_params * (1-sparsity)) >= 5:
-    print(remaining_params, total_params, total_params*sparsity, sparsity)
+    #if np.abs(remaining_params - total_params * (1-sparsity)) >= 5:
+    #    print(remaining_params, total_params, total_params*sparsity, sparsity)

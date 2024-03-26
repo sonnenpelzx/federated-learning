@@ -31,20 +31,21 @@ if __name__ == '__main__':
     args = args_parser()
     args.device = torch.device('cuda:{}'.format(args.gpu) if torch.cuda.is_available() and args.gpu != -1 else 'cpu')
 
-    iters = 30
+    iters = 20
     compression = 1
-    alphas = [i/5 for i in range(0, iters)]
+    alphas = [i/10 for i in range(1, iters)]
     # seeds = [0,99,345]
     seeds = [0]
     x_vals = [10**alpha for alpha in alphas]
-    # _vals = [2000]
+    #x_vals = [2, 2.4, 2.6, 2.8, 3, 3.4]
     y_vals = {'mag': [], 'synflow': [], 'fedspa': []}
 
-    for c in x_vals:
+    for c in range(len(x_vals)):
+      print(c, "/", iters)
       for seed in seeds:
-        for pruner in ('fedspa', 'mag', 'synflow'):
+        for pruner in ['fedspa', 'mag', 'synflow']:
             args.pruner = pruner
-            args.compression = c
+            args.compression = x_vals[c]
 
             # load dataset and split users
             if args.dataset == 'mnist':
@@ -99,12 +100,15 @@ if __name__ == '__main__':
             net_best = None
             best_loss = None
             val_acc_list, net_list = [], []
-            masks = [randomMask(net_glob, args.device, args.compression) for _ in range(args.num_users)]
+            mask_initialization = randomMask(net_glob, args.device, args.compression)
+            masks = [ copy.deepcopy(mask_initialization) for _ in range(args.num_users)]
 
             if args.all_clients: 
                 print("Aggregation over all clients")
                 w_locals = [w_glob for i in range(args.num_users)]
             np.random.seed(0)
+            print("pruner:",  args.pruner)
+            print("sparsity: ", 1- args.compression**(-1))
             for iter in range(args.epochs):
                 loss_locals = []
                 if not args.all_clients:
@@ -113,7 +117,7 @@ if __name__ == '__main__':
                 idxs_users = np.random.choice(range(args.num_users), m, replace=False)
                 for idx in idxs_users:
                     local = LocalUpdate(args=args, dataset=dataset_train, idxs=dict_users[idx])
-                    w, loss, mask = local.train(net=copy.deepcopy(net_glob).to(args.device), mask=masks[idx])
+                    w, loss, mask = local.train(net=copy.deepcopy(net_glob).to(args.device), mask=masks[idx], train_iter=iter)
                     masks[idx] = mask
                     if args.all_clients:
                         w_locals[idx] = copy.deepcopy(w)
@@ -168,5 +172,5 @@ if __name__ == '__main__':
     # plt.show()
 
     # Save plot
-    plt.savefig('../save/simplefedspa_test_{}_{}_{}_{}_{}_{}_{}.png'.format(args.prune_epochs, args.dataset, args.model, args.iid, args.frac, args.num_users, args.epochs))
+    plt.savefig('../save/advancedfedspa_test_{}_{}_{}_{}_{}_{}_{}.png'.format(args.prune_epochs, args.dataset, args.model, args.iid, args.frac, args.num_users, args.epochs))
 

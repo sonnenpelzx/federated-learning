@@ -2,6 +2,7 @@ import torch
 import numpy as np
 from utils.prune_parameters import *
 import copy
+import math
 
 class Pruner:
     def __init__(self, net, device):
@@ -60,13 +61,12 @@ class Mag(Pruner):
                 with torch.no_grad():
                     param.mul_(mask)
                 param.requires_grad
-                #if test(copy_net, input_dim):
-                    #t = 1
-            remaining_params, total_params = self.stats()
             copy_net.zero_grad()
             input = torch.ones([1] + input_dim).to(self.device)#, dtype=torch.float64).to(device)
             output = copy_net(input)
-            print(np.sum((output).clone().detach().cpu().numpy()))
+            layer_collapse = np.sum((output).clone().detach().cpu().numpy())
+            if layer_collapse == 0:
+                print("layer collapse")
 
 class FedSpa(Pruner):
     def __init__(self, net, device):
@@ -99,17 +99,40 @@ class FedSpa(Pruner):
             with torch.no_grad():
                 param.mul_(mask)
             param.requires_grad
-            #if test(copy_net, input_dim):
-                #t = 1
-        remaining_params, total_params = self.stats()
         copy_net.zero_grad()
         input = torch.ones([1] + input_dim).to(self.device)#, dtype=torch.float64).to(device)
         output = copy_net(input)
-        print("layer collapse if = 0")
-        print(np.sum((output).clone().detach().cpu().numpy()))
+        layer_collapse = np.sum((output).clone().detach().cpu().numpy())
+        if layer_collapse == 0:
+            print("layer collapse")
     def score(self, net, input_dim, t=0):
         for _, p in self.mask_parameters:
             self.scores[id(p)] = torch.clone(p.data).detach().abs_()
+    def nextMask(self, net, mask, compression, training_iter, n_training_iter):
+        sparsity =1- compression ** (-1)
+        for i in range(len(self.mask_parameters)):
+            mask_p, param = self.mask_parameters[i]
+            m = mask[i]
+            n = torch.numel(param)
+            #define the number of additional parameters pruned via conise annialing
+            k = int(0.05/2 * (1+ math.cos(training_iter * math.pi / n_training_iter))*(1-sparsity)*n)
+            #prune the k parameters with the smallest absolute value
+            if k > 0:
+                remaining_params = int(m.detach().cpu().numpy().sum())
+                if k >= remaining_params:
+                    k = remaining_params
+                score = torch.clone(param.data).detach().abs_()
+                threshold, _ = torch.kthvalue(torch.flatten(score), k+(n-remaining_params))
+                zero = torch.tensor([0]).to(self.device)
+                one = torch.tensor([1.]).to(self.device)
+                m.copy_(torch.where(score <= threshold, zero, one))
+                #grow the k parameters with the highest gradients
+                m_inverse = torch.where(m == zero, one, zero)
+                masked_gradients = param.grad.mul(m_inverse)
+                _, indexes = torch.topk(torch.flatten(masked_gradients), k)
+                unreavel_indexes = torch.unravel_index(indexes, m.shape)
+                m[unreavel_indexes] = 1
+        return mask
 
 class SynFlow(Pruner):
     def __init__(self, net, device):
@@ -135,21 +158,14 @@ class SynFlow(Pruner):
             with torch.no_grad():
                 param.mul_(mask)
             param.requires_grad
-            #if test(copy_net, input_dim):
-                #t = 1
-        remaining_params, total_params = self.stats()
         copy_net.zero_grad()
         input = torch.ones([1] + input_dim).to(self.device)#, dtype=torch.float64).to(device)
         output = copy_net(input)
         torch.sum(output).backward()
-        if np.sum((output).clone().detach().cpu().numpy()) == 0 or t == 1:
-            print(np.sum((output).clone().detach().cpu().numpy()))
+        if np.sum((output).clone().detach().cpu().numpy()) == 0 and t == 1:
+            print("layer collapse")
             t = 1   
         for i in range(len(mask_parameters_copy)):
             _, p = mask_parameters_copy[i]
             mask, param= self.mask_parameters[i]
-            #if t == 1:
-                #print("layer", i)
-                #print(remaining_params, total_params)
-                #print()
             self.scores[id(param)] = torch.clone(p.grad * p).detach().abs_() 
