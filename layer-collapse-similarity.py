@@ -70,12 +70,6 @@ def similarity_based_compensation(w_locals, users_received, args):
         similarity_matrix[u] = most_similar
     print(similarity_matrix)
     return similarity_matrix
-            
-
-
-
-
-    return w_locals
 
 if __name__ == '__main__':
     # parse args
@@ -91,7 +85,8 @@ if __name__ == '__main__':
     # _vals = [2000]
     y_vals = {'mag': [], 'synflow': [], 'fedspa': []}
 
-    for c in x_vals:
+    for c in range(len(x_vals)):
+      print(c, "/", iters)
       for seed in seeds:
         # set random seed
         np.random.seed(seed)
@@ -100,7 +95,7 @@ if __name__ == '__main__':
         torch.backends.cudnn.deterministic = True
         for pruner in ('fedspa', 'mag', 'synflow'):
             args.pruner = pruner
-            args.compression = c
+            args.compression = x_vals[c]
 
             # load dataset and split users
             if args.dataset == 'mnist':
@@ -240,7 +235,7 @@ if __name__ == '__main__':
     os.makedirs(save_dir, exist_ok=True)
 
     # Save the plot
-    plt.savefig(f"{save_dir}/similarity_test_{args.prune_epochs}_{args.dataset}_{args.model}_{args.frac}_{time}.png")
+    plt.savefig(f"{save_dir}/similarity_test_{args.prune_epochs}_{args.dataset}_{args.model}_{args.iid}_{args.frac}_{args.num_users}_{args.epochs}_{time}.png")
     # plt.savefig('../save/synflow_test_{}_{}_{}_{}_{}_{}_{}.png'.format(args.prune_epochs, args.dataset, args.model, args.iid, args.frac, args.num_users, args.epochs))
 
 
