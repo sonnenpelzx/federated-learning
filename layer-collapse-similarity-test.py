@@ -70,7 +70,7 @@ def similarity_score(u: int,v: int, w_locals, args) -> float:
     # print('w_v layer 0',  type(w_v['layers.0.weight']), w_v['layers.0.weight'] )
     return -distance
 
-def similarity_based_compensation(w_locals, users_received, args):
+def similarity_based_compensation(w_locals, users_received, args, sm):
     similarity_matrix = [i for i in range(len(w_locals))]
     for u in range(args.num_users):
         if u in users_received:
@@ -80,7 +80,10 @@ def similarity_based_compensation(w_locals, users_received, args):
         most_similar = users_received[0]
         for neighbor in users_received:
             # print('u, v, most_similar', u, neighbor, most_similar, similarity_score(u, neighbor, w_locals), similarity_score(u, most_similar, w_locals))
-            if similarity_score(u, neighbor, w_locals, args) > similarity_score(u, most_similar, w_locals, args):
+            similarity = similarity_score(u, neighbor, w_locals, args)
+            sm[u][neighbor] = similarity.item() * -1
+            sm[neighbor][u] = similarity.item() * -1
+            if similarity > similarity_score(u, most_similar, w_locals, args):
                 most_similar = neighbor
 
         # update the similarity matrix
@@ -100,6 +103,7 @@ if __name__ == '__main__':
     seeds = [0]
     x_vals = [i for i in range(args.epochs_start, args.epochs_end, args.epochs_step)]
     y_vals = {'acc': [], 'loss': []}
+    sm = [[0 for _ in range(args.num_users)] for _ in range(args.num_users)]
 
     for seed in seeds:
         # set random seed
@@ -184,9 +188,11 @@ if __name__ == '__main__':
                 loss_locals.append(copy.deepcopy(loss))
             # update global weights
             # similarity logic
-            similarity_matrix = similarity_based_compensation(w_locals, users_received=idxs_users, args=args)
-            w_glob = GlobalAvg(w_locals, similarity_matrix)
-            # w_glob = FedAvg(w_locals)
+            if args.compensation:
+                similarity_matrix = similarity_based_compensation(w_locals, users_received=idxs_users, args=args, sm = sm)
+                w_glob = GlobalAvg(w_locals, similarity_matrix)
+            else:
+                w_glob = GlobalAvg(w_locals, idxs_users)
 
             # copy weight to net_glob
             net_glob.load_state_dict(w_glob)
@@ -231,5 +237,8 @@ if __name__ == '__main__':
     plt.ylabel('Loss')
     plt.title('')
     plt.savefig(f"{save_dir}/similarity_test_loss_{args.prune_epochs}_{args.dataset}_{args.model}_{args.iid}_{args.p}_{args.num_users}_{args.epochs_start}_{args.epochs_end}_{time}.png")
-    np.savez(f"{save_dir}/similarity_z_test_loss_{args.prune_epochs}_{args.dataset}_{args.model}_{args.iid}_{args.p}_{args.num_users}_{args.epochs_start}_{args.epochs_end}_{time}", y = np.array(y_vals['loss']), x = np.array(x_vals))
-    np.savez(f"{save_dir}/similarity_z_test_acc_{args.prune_epochs}_{args.dataset}_{args.model}_{args.iid}_{args.p}_{args.num_users}_{args.epochs_start}_{args.epochs_end}_{time}", y = np.array(y_vals['acc']), x = np.array(x_vals))
+    np.savez(f"{save_dir}/similarity_test_loss_{args.prune_epochs}_{args.dataset}_{args.model}_{args.iid}_{args.p}_{args.num_users}_{args.epochs_start}_{args.epochs_end}_{time}", y = np.array(y_vals['loss']), x = np.array(x_vals))
+    np.savez(f"{save_dir}/similarity_test_acc_{args.prune_epochs}_{args.dataset}_{args.model}_{args.iid}_{args.p}_{args.num_users}_{args.epochs_start}_{args.epochs_end}_{time}", y = np.array(y_vals['acc']), x = np.array(x_vals))
+    plt.imshow(np.array(sm), cmap='viridis')  # cmap specifies the colormap (color scheme)
+    plt.colorbar() 
+    plt.savefig(f"{save_dir}/sm_{args.prune_epochs}_{args.dataset}_{args.model}_{args.iid}_{args.p}_{args.num_users}_{args.epochs_start}_{args.epochs_end}_{time}.png")
