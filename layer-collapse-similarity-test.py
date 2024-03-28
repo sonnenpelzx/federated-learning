@@ -38,11 +38,11 @@ def get_successful_users(p, num_users):
         if random.random() <= p:
             group2.append(i)
     if len(group1) == 0:
-        user = np.random.choice(range(num_users//2), num_users//2, replace=False)
-        group1.append(user)
+        user = np.random.choice(range(num_users//2), 1, replace=False)
+        group1.append(user[0])
     if len(group2) == 0:
-        user = np.random.choice(range(num_users//2, num_users), num_users//2, replace=False)
-        group2.append(user)
+        user = np.random.choice(range(num_users//2, num_users), 1, replace=False)
+        group2.append(user[0])
     return group1 + group2
 
 
@@ -231,5 +231,5 @@ if __name__ == '__main__':
     plt.ylabel('Loss')
     plt.title('')
     plt.savefig(f"{save_dir}/similarity_test_loss_{args.prune_epochs}_{args.dataset}_{args.model}_{args.iid}_{args.p}_{args.num_users}_{args.epochs_start}_{args.epochs_end}_{time}.png")
-    np.save(f"{save_dir}/similarity_test_loss_{args.prune_epochs}_{args.dataset}_{args.model}_{args.iid}_{args.p}_{args.num_users}_{args.epochs_start}_{args.epochs_end}_{time}.png", np.array(y_vals['loss']))
-    np.save(f"{save_dir}/similarity_acc_loss_{args.prune_epochs}_{args.dataset}_{args.model}_{args.iid}_{args.p}_{args.num_users}_{args.epochs_start}_{args.epochs_end}_{time}.png", np.array(y_vals['acc']))
+    np.savez(f"{save_dir}/similarity_z_test_loss_{args.prune_epochs}_{args.dataset}_{args.model}_{args.iid}_{args.p}_{args.num_users}_{args.epochs_start}_{args.epochs_end}_{time}", y = np.array(y_vals['loss']), x = np.array(x_vals))
+    np.savez(f"{save_dir}/similarity_z_test_acc_{args.prune_epochs}_{args.dataset}_{args.model}_{args.iid}_{args.p}_{args.num_users}_{args.epochs_start}_{args.epochs_end}_{time}", y = np.array(y_vals['acc']), x = np.array(x_vals))
