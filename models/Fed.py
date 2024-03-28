@@ -16,7 +16,7 @@ def FedAvg(w):
     return w_avg
 
 def GlobalAvg(w, similarity_matrix):
-    w = copy.deepcopy(w) # not sure if this is necessary
-    for u in range(len(w)):
-        w[u] = w[similarity_matrix[u]]
-    return FedAvg(w)
+    similar_w = [i for i in range(len(w))]
+    for i in range(len(similarity_matrix)):
+        similar_w[i] = w[similarity_matrix[i]]
+    return FedAvg(similar_w)

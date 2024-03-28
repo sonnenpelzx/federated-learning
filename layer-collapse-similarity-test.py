@@ -12,11 +12,11 @@ import numpy as np
 from torchvision import datasets, transforms
 import torch
 import datetime
-
+import random
 import sys
 sys.path.append('../')
 
-from utils.sampling import mnist_iid, mnist_noniid, cifar_iid
+from utils.sampling import mnist_iid, mnist_noniid, cifar_iid, cifar_noniid
 from utils.options import args_parser
 from models.Update import LocalUpdate
 from models.Nets import MLP, CNNMnist, CNNCifar
@@ -27,6 +27,23 @@ import torch.optim as optim
 import torchvision.models as models
 from utils.prune_parameters import *
 from numpy import random
+
+def get_successful_users(p, num_users):
+    group1 = []
+    group2 = []
+    for i in range(0, num_users//2):
+        if random.random() <= p:
+            group1.append(i)
+    for i in range(num_users//2, num_users):
+        if random.random() <= p:
+            group2.append(i)
+    if len(group1) == 0:
+        user = np.random.choice(range(num_users//2), num_users//2, replace=False)
+        group1.append(user)
+    if len(group2) == 0:
+        user = np.random.choice(range(num_users//2, num_users), num_users//2, replace=False)
+        group2.append(user)
+    return group1 + group2
 
 
 def similarity_score(u: int,v: int, w_locals, args) -> float:
@@ -108,7 +125,7 @@ if __name__ == '__main__':
             if args.iid:
                 dict_users = cifar_iid(dataset_train, args.num_users)
             else:
-                exit('Error: only consider IID setting in CIFAR10')
+                dict_users = cifar_noniid(dataset_train, args.num_users)
         else:
             exit('Error: unrecognized dataset')
         img_size = dataset_train[0][0].shape
@@ -129,6 +146,12 @@ if __name__ == '__main__':
             for x in img_size:
                 len_in *= x
             net_glob = MLP(dim_in=len_in, dim_hidden=200, dim_out=args.num_classes).to(args.device)
+        elif args.model == 'resnet18' and args.dataset == 'cifar':
+            model = models.resnet18()
+            # Modify the last layer to have 10 output classes (CIFAR-10 has 10 classes)
+            num_ftrs = model.fc.in_features
+            model.fc = nn.Linear(num_ftrs, 10)
+            net_glob = model.to(args.device)
         else:
             exit('Error: unrecognized model')
         print(net_glob)
@@ -150,8 +173,7 @@ if __name__ == '__main__':
 
         for iter in range(args.epochs_end):
             loss_locals = []
-            m = max(int(args.frac * args.num_users), 1)
-            idxs_users = np.random.choice(range(args.num_users), m, replace=False)
+            idxs_users = get_successful_users(args.p, args.num_users) 
             print('RANDOM USER INDICES', idxs_users)
             for idx in idxs_users:
                 local = LocalUpdate(args=args, dataset=dataset_train, idxs=dict_users[idx])
@@ -177,6 +199,7 @@ if __name__ == '__main__':
                 net_glob.eval()
                 acc_test, loss_test = test_img(net_glob, dataset_test, args)
                 print("Testing accuracy: {:.2f}".format(acc_test))
+                print("Testing loss: {:.2f}".format(loss_test))
 
                 y_vals['acc'].append(acc_test.item())
                 y_vals['loss'].append(loss_test)
@@ -205,7 +228,7 @@ if __name__ == '__main__':
     plt.figure()
     plt.plot(x_vals, y_vals['loss'])
     plt.xlabel('Communication Rounds')
-    plt.ylabel('Top-1 Accuracy')
+    plt.ylabel('Loss')
     plt.title('')
     plt.savefig(f"{save_dir}/similarity_test_loss_{args.prune_epochs}_{args.dataset}_{args.model}_{args.iid}_{args.frac}_{args.num_users}_{args.epochs_start}_{args.epochs_end}_{time}.png")
     np.save(f"{save_dir}/similarity_test_loss_{args.prune_epochs}_{args.dataset}_{args.model}_{args.iid}_{args.frac}_{args.num_users}_{args.epochs_start}_{args.epochs_end}_{time}.png", np.array(y_vals['loss']))

@@ -63,6 +63,29 @@ def cifar_iid(dataset, num_users):
         all_idxs = list(set(all_idxs) - dict_users[i])
     return dict_users
 
+def cifar_noniid(dataset, num_users):
+    dict_users = {}
+    part1_labels = np.random.choice(np.unique(dataset.targets), 5, replace=False)
+
+    part1_idxs = []
+    part2_idxs = []
+
+    for idx, target in enumerate(dataset.targets):
+        if target in part1_labels:
+            part1_idxs.append(idx)
+        else:
+            part2_idxs.append(idx)
+
+    for i in range(num_users):
+        if i < num_users // 2:
+            dict_users[i] = set(np.random.choice(part1_idxs, len(part1_idxs) // num_users, replace=False))
+            part1_idxs = list(set(part1_idxs) - dict_users[i])
+        else:
+            dict_users[i] = set(np.random.choice(part2_idxs, len(part2_idxs) // (num_users - num_users // 2), replace=False))
+            part2_idxs = list(set(part2_idxs) - dict_users[i])
+
+    return dict_users
+
 
 if __name__ == '__main__':
     dataset_train = datasets.MNIST('../data/mnist/', train=True, download=True,

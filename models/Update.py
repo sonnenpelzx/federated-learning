@@ -53,12 +53,14 @@ class LocalUpdate(object):
     def train(self, net, mask, train_iter):
         net.train()
         mask = self.prune(net, mask)
-        optimizer = torch.optim.SGD(net.parameters(), lr=self.args.lr, momentum=self.args.momentum)
+        optimizer = torch.optim.Adam(net.parameters(), lr=self.args.lr)
         epoch_loss = []
         for iter in range(self.args.local_ep):
             batch_loss = []
             for batch_idx, (images, labels) in enumerate(self.ldr_train):
                 images, labels = images.to(self.args.device), labels.to(self.args.device)
+                if(len(images) == 1):
+                    continue
                 net.zero_grad()
                 log_probs = net(images)
                 loss = self.loss_func(log_probs, labels)

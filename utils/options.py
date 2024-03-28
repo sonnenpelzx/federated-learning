@@ -11,7 +11,7 @@ def args_parser():
     parser.add_argument('--epochs_end', type=int, default=10, help="rounds of training to end training")
     parser.add_argument('--epochs_step', type=int, default=1, help="record ever --epochs_step training step")
     parser.add_argument('--num_users', type=int, default=100, help="number of users: K")
-    parser.add_argument('--frac', type=float, default=0.1, help="the fraction of clients: C")
+    parser.add_argument('--p', type=float, default=0.1, help="transmission probability")
     parser.add_argument('--local_ep', type=int, default=5, help="the number of local epochs: E")
     parser.add_argument('--local_bs', type=int, default=10, help="local batch size: B")
     parser.add_argument('--bs', type=int, default=128, help="test batch size")
