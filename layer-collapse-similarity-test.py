@@ -223,13 +223,13 @@ if __name__ == '__main__':
     os.makedirs(save_dir, exist_ok=True)
 
     # Save the plot
-    plt.savefig(f"{save_dir}/similarity_test_acc_{args.prune_epochs}_{args.dataset}_{args.model}_{args.iid}_{args.frac}_{args.num_users}_{args.epochs_start}_{args.epochs_end}_{time}.png")
+    plt.savefig(f"{save_dir}/similarity_test_acc_{args.prune_epochs}_{args.dataset}_{args.model}_{args.iid}_{args.p}_{args.num_users}_{args.epochs_start}_{args.epochs_end}_{time}.png")
     # plt.savefig('../save/synflow_test_{}_{}_{}_{}_{}_{}_{}.png'.format(args.prune_epochs, args.dataset, args.model, args.iid, args.frac, args.num_users, args.epochs))
     plt.figure()
     plt.plot(x_vals, y_vals['loss'])
     plt.xlabel('Communication Rounds')
     plt.ylabel('Loss')
     plt.title('')
-    plt.savefig(f"{save_dir}/similarity_test_loss_{args.prune_epochs}_{args.dataset}_{args.model}_{args.iid}_{args.frac}_{args.num_users}_{args.epochs_start}_{args.epochs_end}_{time}.png")
-    np.save(f"{save_dir}/similarity_test_loss_{args.prune_epochs}_{args.dataset}_{args.model}_{args.iid}_{args.frac}_{args.num_users}_{args.epochs_start}_{args.epochs_end}_{time}.png", np.array(y_vals['loss']))
-    np.save(f"{save_dir}/similarity_acc_loss_{args.prune_epochs}_{args.dataset}_{args.model}_{args.iid}_{args.frac}_{args.num_users}_{args.epochs_start}_{args.epochs_end}_{time}.png", np.array(y_vals['acc']))
+    plt.savefig(f"{save_dir}/similarity_test_loss_{args.prune_epochs}_{args.dataset}_{args.model}_{args.iid}_{args.p}_{args.num_users}_{args.epochs_start}_{args.epochs_end}_{time}.png")
+    np.save(f"{save_dir}/similarity_test_loss_{args.prune_epochs}_{args.dataset}_{args.model}_{args.iid}_{args.p}_{args.num_users}_{args.epochs_start}_{args.epochs_end}_{time}.png", np.array(y_vals['loss']))
+    np.save(f"{save_dir}/similarity_acc_loss_{args.prune_epochs}_{args.dataset}_{args.model}_{args.iid}_{args.p}_{args.num_users}_{args.epochs_start}_{args.epochs_end}_{time}.png", np.array(y_vals['acc']))
