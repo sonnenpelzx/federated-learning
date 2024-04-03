@@ -5,15 +5,15 @@
 import torch
 from torch import nn
 import torch.nn.functional as F
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
+from models.Update import DatasetSplit
 
-
-def test_img(net_g, datatest, args):
+def test_img(net_g, datatest, args, train_set):
     net_g.eval()
     # testing
     test_loss = 0
     correct = 0
-    data_loader = DataLoader(datatest, batch_size=args.bs)
+    data_loader = DataLoader(DatasetSplit(datatest, train_set), batch_size=args.bs)
     l = len(data_loader)
     for idx, (data, target) in enumerate(data_loader):
         if args.gpu != -1:

@@ -4,7 +4,7 @@ import numpy as np
 
 def prune(pruner, compression, prune_epochs, net, input_dim):
     sparsity = 0.0
-    print(compression)
+    #print(compression)
     for prune_epoch in range(prune_epochs):
         pruner.score(net, input_dim)
         sparsity = 1.0 - (compression) ** (-(prune_epoch+1)/prune_epochs)

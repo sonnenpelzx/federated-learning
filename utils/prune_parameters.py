@@ -5,11 +5,15 @@ def prunable(p):
     return isinstance(p, (nn.Linear, nn.Conv2d))
 
 def parameters(model, device):
-    for module in filter(lambda p: prunable(p), model.modules()):
+    filteredModel = list(filter(lambda p: prunable(p), model.modules()))
+    for m_index in range(len(filteredModel)):
+        if m_index == 0:
+            continue
+        module = filteredModel[m_index]
         for param in module.parameters(recurse=False):
-            if param is not module.bias:
-                mask = torch.ones(param.shape).to(device)
-                yield mask, param
+            #if param is not module.bias:
+            mask = torch.ones(param.shape).to(device)
+            yield mask, param
 
 def randomMask(model, device, compression):
     sparsity = 1.0 - (compression**(-1))
