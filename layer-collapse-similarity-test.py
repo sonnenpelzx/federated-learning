@@ -81,7 +81,7 @@ def save_path(args):
         comp = "comp"
     else:
         comp = "nocomp"
-    path = f"../results/{pruner}/{pruner}-p{p}-spar{sparsity}-{comp}"
+    path = f"../save/results/{pruner}/{pruner}-p{p}-spar{sparsity}-{comp}"
     return path
 
 def get_successful_users(p, num_users):
