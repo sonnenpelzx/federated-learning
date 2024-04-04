@@ -83,7 +83,7 @@ def similarity_based_compensation(w_locals, users_received, args, sm):
             similarity = similarity_score(u, neighbor, w_locals, args)
             sm[u][neighbor] = similarity.item() * -1
             sm[neighbor][u] = similarity.item() * -1
-            if similarity > similarity_score(u, most_similar, w_locals, args):
+            if similarity > sm[u][most_similar]:
                 most_similar = neighbor
 
         # update the similarity matrix
@@ -95,6 +95,8 @@ if __name__ == '__main__':
     # parse args
     args = args_parser()
     args.device = torch.device('cuda:{}'.format(args.gpu) if torch.cuda.is_available() and args.gpu != -1 else 'cpu')
+    print(args.device)
+    print(torch.cuda.get_device_name(0))
 
     iters = 5
     compression = 1
@@ -129,7 +131,7 @@ if __name__ == '__main__':
             if args.iid:
                 dict_users = cifar_iid(dataset_train, args.num_users)
             else:
-                dict_users = cifar_noniid(dataset_train, args.num_users)
+                dict_users, train_set = cifar_noniid(dataset_train, args.num_users)
         else:
             exit('Error: unrecognized dataset')
         img_size = dataset_train[0][0].shape
@@ -203,7 +205,7 @@ if __name__ == '__main__':
             loss_train.append(loss_avg)
             if (iter - args.epochs_start) % args.epochs_step == 0 and iter >= args.epochs_start:
                 net_glob.eval()
-                acc_test, loss_test = test_img(net_glob, dataset_test, args)
+                acc_test, loss_test = test_img(net_glob, dataset_train, args, train_set)
                 print("Testing accuracy: {:.2f}".format(acc_test))
                 print("Testing loss: {:.2f}".format(loss_test))
 
@@ -236,9 +238,9 @@ if __name__ == '__main__':
     plt.xlabel('Communication Rounds')
     plt.ylabel('Loss')
     plt.title('')
-    plt.savefig(f"{save_dir}/similarity_test_loss_{args.prune_epochs}_{args.compensation}_{args.dataset}_{args.model}_{args.iid}_{args.p}_{args.num_users}_{args.epochs_start}_{args.epochs_end}_{time}.png")
-    np.savez(f"{save_dir}/similarity_test_loss_{args.prune_epochs}_{args.compensation}_{args.dataset}_{args.model}_{args.iid}_{args.p}_{args.num_users}_{args.epochs_start}_{args.epochs_end}_{time}", y = np.array(y_vals['loss']), x = np.array(x_vals))
-    np.savez(f"{save_dir}/similarity_test_acc_{args.prune_epochs}_{args.compensation}_{args.dataset}_{args.model}_{args.iid}_{args.p}_{args.num_users}_{args.epochs_start}_{args.epochs_end}_{time}", y = np.array(y_vals['acc']), x = np.array(x_vals))
+    plt.savefig(f"{save_dir}/similarity_test_loss_{args.pruner}_{args.prune_epochs}_{args.compensation}_{args.dataset}_{args.model}_{args.iid}_{args.p}_{args.num_users}_{args.epochs_start}_{args.epochs_end}_{time}.png")
+    np.savez(f"{save_dir}/similarity_test_loss_{args.pruner}_{args.prune_epochs}_{args.compensation}_{args.dataset}_{args.model}_{args.iid}_{args.p}_{args.num_users}_{args.epochs_start}_{args.epochs_end}_{time}", y = np.array(y_vals['loss']), x = np.array(x_vals))
+    np.savez(f"{save_dir}/similarity_test_acc_{args.pruner}_{args.prune_epochs}_{args.compensation}_{args.dataset}_{args.model}_{args.iid}_{args.p}_{args.num_users}_{args.epochs_start}_{args.epochs_end}_{time}", y = np.array(y_vals['acc']), x = np.array(x_vals))
     plt.imshow(np.array(sm), cmap='viridis')  # cmap specifies the colormap (color scheme)
     plt.colorbar() 
-    plt.savefig(f"{save_dir}/sm_{args.prune_epochs}_{args.compensation}_{args.dataset}_{args.model}_{args.iid}_{args.p}_{args.num_users}_{args.epochs_start}_{args.epochs_end}_{time}.png")
+    plt.savefig(f"{save_dir}/sm_{args.pruner}_{args.prune_epochs}_{args.compensation}_{args.dataset}_{args.model}_{args.iid}_{args.p}_{args.num_users}_{args.epochs_start}_{args.epochs_end}_{time}.png")
