@@ -1,0 +1,1 @@
+--model resnet18 --dataset cifar --epochs_start 0 --compensation --epochs_end 2 --epochs_step 1 --local_ep 5 --gpu -1 --num_channels 1 --num_users 100 --local_bs 128 --p 0.01 --lr 0.001 --compression 2.5 --prune_epochs 100 --pruner mag
