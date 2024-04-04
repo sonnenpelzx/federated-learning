@@ -27,6 +27,62 @@ import torch.optim as optim
 import torchvision.models as models
 from utils.prune_parameters import *
 from numpy import random
+import json
+
+def save_models(w_locals, w_global, masks, iters, path):
+    save_dir = f"{path}/models"
+    os.makedirs(save_dir, exist_ok=True)
+    if os.path.exists(f"{save_dir}/iters.json"):
+        with open(f"{save_dir}/iters.json", 'r') as file:
+            data = json.load(file)
+        if data["iters"] > iters:
+            return
+    for i in range(len(w_locals)):
+        torch.save(w_locals[i], f"{save_dir}/{i}.pth")
+    for i in range(len(w_locals)):
+        torch.save(masks[i], f"{save_dir}/mask{i}.pth")
+    torch.save(w_global, f"{save_dir}/global.pth")
+    json_data = {'iters': iters}
+    with open(f"{save_dir}/iters.json", 'w') as file:
+        json.dump(json_data, file)
+
+def load_models(w_locals, w_global, masks, iters, path):
+    save_dir = f"{path}/models"
+    with open(f"{save_dir}/iters.json", 'r') as file:
+        data = json.load(file)
+    if data["iters"] < iters:
+        return iters, w_global
+    w_global = torch.load(f"{save_dir}/global.pth")
+    for i in range(len(w_locals)):
+        w_locals[i] = torch.load(f"{save_dir}/{i}.pth")
+    for i in range(len(w_locals)):
+        masks[i] = torch.load(f"{save_dir}/mask{i}.pth")
+    return data["iters"], w_global
+
+def save_path(args):
+    pruner = args.pruner
+    sparsity = 1 - args.compression**(-1)
+    p = args.p
+    comp = ""
+    if args.p == 1:
+        p = "1"
+    else:
+        p *= 10
+        p = int(p)
+        p = f"0{p}"
+    if sparsity == 0:
+        sparsity = "0"
+    else:
+        sparsity *= 10
+        sparsity = int(sparsity)
+        sparsity = f"0{sparsity}"
+
+    if args.compensation:
+        comp = "comp"
+    else:
+        comp = "nocomp"
+    path = f"./results/{pruner}/{pruner}-p{p}-spar{sparsity}-{comp}"
+    return path
 
 def get_successful_users(p, num_users):
     group1 = []
@@ -97,11 +153,9 @@ if __name__ == '__main__':
     args.device = torch.device('cuda:{}'.format(args.gpu) if torch.cuda.is_available() and args.gpu != -1 else 'cpu')
     print(args.device)
     print(torch.cuda.get_device_name(0))
+    path = save_path(args)
+    print(path)
 
-    iters = 5
-    compression = 1
-    alphas = [i/5 for i in range(0, iters)]
-    # seeds = [0,99,345]
     seeds = [0]
     x_vals = [i for i in range(args.epochs_start, args.epochs_end, args.epochs_step)]
     y_vals = {'acc': [], 'loss': []}
@@ -117,8 +171,8 @@ if __name__ == '__main__':
         # load dataset and split users
         if args.dataset == 'mnist':
             trans_mnist = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))])
-            dataset_train = datasets.MNIST('../data/mnist/', train=True, download=True, transform=trans_mnist)
-            dataset_test = datasets.MNIST('../data/mnist/', train=False, download=True, transform=trans_mnist)
+            dataset_train = datasets.MNIST('./data/mnist/', train=True, download=True, transform=trans_mnist)
+            dataset_test = datasets.MNIST('./data/mnist/', train=False, download=True, transform=trans_mnist)
             # sample users
             if args.iid:
                 dict_users = mnist_iid(dataset_train, args.num_users)
@@ -176,8 +230,11 @@ if __name__ == '__main__':
         masks = [randomMask(net_glob, args.device, args.compression) for _ in range(args.num_users)]
         print('mask', len(masks), len(masks[0]), type(masks[0]), masks[0][0].size()) # Shape = 100 x 6 x 400 x 3072
         w_locals = [copy.deepcopy(w_glob) for i in range(args.num_users)]
-
-        for iter in range(args.epochs_end):
+        save_models(w_locals, w_glob, masks, 0, path)
+        start_epochs, w_g = load_models(w_locals, w_glob, masks, 0, path)
+        net_glob.load_state_dict(w_g)
+        net_glob.eval()
+        for iter in range(start_epochs, args.epochs_end):
             loss_locals = []
             idxs_users = get_successful_users(args.p, args.num_users) 
             print('RANDOM USER INDICES', idxs_users)
@@ -212,6 +269,7 @@ if __name__ == '__main__':
                 y_vals['acc'].append(acc_test.item())
                 y_vals['loss'].append(loss_test)
                 #y_vals[args.pruner].append(0)
+                save_models(w_locals, w_glob, masks, iter, path)
 
     print('test accuracy: ', y_vals['acc'])
     print('test loss: ', y_vals['loss'])
@@ -231,7 +289,7 @@ if __name__ == '__main__':
     os.makedirs(save_dir, exist_ok=True)
 
     # Save the plot
-    plt.savefig(f"{save_dir}/similarity_test_acc_{args.prune_epochs}_{args.compensation}_{args.dataset}_{args.model}_{args.iid}_{args.p}_{args.num_users}_{args.epochs_start}_{args.epochs_end}_{time}.png")
+    plt.savefig(f"{save_dir}/similarity_test_acc_{args.pruner}_{args.prune_epochs}_{args.compensation}_{args.dataset}_{args.model}_{args.iid}_{args.p}_{args.num_users}_{args.epochs_start}_{args.epochs_end}_{time}.png")
     # plt.savefig('../save/synflow_test_{}_{}_{}_{}_{}_{}_{}.png'.format(args.prune_epochs, args.dataset, args.model, args.iid, args.frac, args.num_users, args.epochs))
     plt.figure()
     plt.plot(x_vals, y_vals['loss'])

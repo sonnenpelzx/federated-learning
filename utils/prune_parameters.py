@@ -28,7 +28,6 @@ def randomMask(model, device, compression):
             indices = torch.randperm(m.numel())[:parameters_to_pruned]
             m.view(-1)[indices] = 0
             m = m.to(device)
-            if param is not module.bias:
-                masks.append(m)
+            masks.append(m)
     
     return masks
