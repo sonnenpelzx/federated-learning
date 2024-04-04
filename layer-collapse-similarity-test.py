@@ -81,7 +81,7 @@ def save_path(args):
         comp = "comp"
     else:
         comp = "nocomp"
-    path = f"./results/{pruner}/{pruner}-p{p}-spar{sparsity}-{comp}"
+    path = f"../results/{pruner}/{pruner}-p{p}-spar{sparsity}-{comp}"
     return path
 
 def get_successful_users(p, num_users):
@@ -171,8 +171,8 @@ if __name__ == '__main__':
         # load dataset and split users
         if args.dataset == 'mnist':
             trans_mnist = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))])
-            dataset_train = datasets.MNIST('./data/mnist/', train=True, download=True, transform=trans_mnist)
-            dataset_test = datasets.MNIST('./data/mnist/', train=False, download=True, transform=trans_mnist)
+            dataset_train = datasets.MNIST('../data/mnist/', train=True, download=True, transform=trans_mnist)
+            dataset_test = datasets.MNIST('../data/mnist/', train=False, download=True, transform=trans_mnist)
             # sample users
             if args.iid:
                 dict_users = mnist_iid(dataset_train, args.num_users)
@@ -285,7 +285,7 @@ if __name__ == '__main__':
     time = now.strftime("%H_%M_%S")
 
     # Create the directory if it doesn't exist
-    save_dir = f"../save/{date}"
+    save_dir = f"{path}/{date}"
     os.makedirs(save_dir, exist_ok=True)
 
     # Save the plot

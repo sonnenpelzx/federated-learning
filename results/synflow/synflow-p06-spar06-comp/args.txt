@@ -1,0 +1,1 @@
+--p 0.6 --compensation --compression 2.5 --pruner synflow --model resnet18 --dataset cifar --epochs_start 0 --epochs_end 200 --epochs_step 1 --local_ep 5 --gpu 0 --num_channels 1 --num_users 50 --local_bs 128 --lr 0.001 --prune_epochs 100
