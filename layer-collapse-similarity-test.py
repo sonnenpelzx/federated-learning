@@ -29,7 +29,7 @@ from utils.prune_parameters import *
 from numpy import random
 import json
 
-def save_models(w_locals, w_global, masks, iters, path, y_vals, x_vals, save_vals):
+def save_models(w_locals, w_global, masks, iters, path, y_vals, x_vals=:
     save_dir = f"{path}/models"
     os.makedirs(save_dir, exist_ok=True)
     if os.path.exists(f"{save_dir}/iters.json"):
@@ -42,13 +42,13 @@ def save_models(w_locals, w_global, masks, iters, path, y_vals, x_vals, save_val
     for i in range(len(w_locals)):
         torch.save(masks[i], f"{save_dir}/mask{i}.pth")
     torch.save(w_global, f"{save_dir}/global.pth")
-    np.savez(f"{save_vals}/similarity_test_loss_{args.pruner}_{args.prune_epochs}_{args.compensation}_{args.dataset}_{args.model}_{args.iid}_{args.p}_{args.num_users}_{args.epochs_start}_{args.epochs_end}_{time}", y = np.array(y_vals['loss']), x = np.array(x_vals))
-    np.savez(f"{save_vals}/similarity_test_acc_{args.pruner}_{args.prune_epochs}_{args.compensation}_{args.dataset}_{args.model}_{args.iid}_{args.p}_{args.num_users}_{args.epochs_start}_{args.epochs_end}_{time}", y = np.array(y_vals['acc']), x = np.array(x_vals))
+    np.savez(f"{save_dir}/similarity_test_loss_{args.pruner}_{args.prune_epochs}_{args.compensation}_{args.dataset}_{args.model}_{args.iid}_{args.p}_{args.num_users}_{args.epochs_start}_{args.epochs_end}_{time}", y = np.array(y_vals['loss']), x = np.array(x_vals))
+    np.savez(f"{save_dir}/similarity_test_acc_{args.pruner}_{args.prune_epochs}_{args.compensation}_{args.dataset}_{args.model}_{args.iid}_{args.p}_{args.num_users}_{args.epochs_start}_{args.epochs_end}_{time}", y = np.array(y_vals['acc']), x = np.array(x_vals))
     json_data = {'iters': iters}
     with open(f"{save_dir}/iters.json", 'w') as file:
         json.dump(json_data, file)
 
-def load_models(w_locals, w_global, masks, iters, path, y_vals, x_vals, save_vals):
+def load_models(w_locals, w_global, masks, iters, path, y_vals, x_vals):
     save_dir = f"{path}/models"
     with open(f"{save_dir}/iters.json", 'r') as file:
         data = json.load(file)
@@ -59,8 +59,8 @@ def load_models(w_locals, w_global, masks, iters, path, y_vals, x_vals, save_val
         w_locals[i] = torch.load(f"{save_dir}/{i}.pth")
     for i in range(len(w_locals)):
         masks[i] = torch.load(f"{save_dir}/mask{i}.pth")
-    loss = np.load(f"{save_vals}/similarity_test_loss_{args.pruner}_{args.prune_epochs}_{args.compensation}_{args.dataset}_{args.model}_{args.iid}_{args.p}_{args.num_users}_{args.epochs_start}_{args.epochs_end}_{time}")
-    acc = np.load(f"{save_vals}/similarity_test_acc_{args.pruner}_{args.prune_epochs}_{args.compensation}_{args.dataset}_{args.model}_{args.iid}_{args.p}_{args.num_users}_{args.epochs_start}_{args.epochs_end}_{time}")
+    loss = np.load(f"{save_dir}/similarity_test_loss_{args.pruner}_{args.prune_epochs}_{args.compensation}_{args.dataset}_{args.model}_{args.iid}_{args.p}_{args.num_users}_{args.epochs_start}_{args.epochs_end}_{time}")
+    acc = np.load(f"{save_dir}/similarity_test_acc_{args.pruner}_{args.prune_epochs}_{args.compensation}_{args.dataset}_{args.model}_{args.iid}_{args.p}_{args.num_users}_{args.epochs_start}_{args.epochs_end}_{time}")
     y_vals['loss'] = loss['y']
     y_vals['acc'] = acc['y']
     x_vals = acc['x']
@@ -245,8 +245,8 @@ if __name__ == '__main__':
         masks = [ mask for _ in range(args.num_users)]
         print('mask', len(masks), len(masks[0]), type(masks[0]), masks[0][0].size()) # Shape = 100 x 6 x 400 x 3072
         w_locals = [copy.deepcopy(w_glob) for i in range(args.num_users)]
-        save_models(w_locals, w_glob, masks, 0, path, y_vals, x_vals, save_dir)
-        start_epochs, w_g = load_models(w_locals, w_glob, masks, 0, path, y_vals, x_vals, save_dir)
+        save_models(w_locals, w_glob, masks, 0, path, y_vals, x_vals)
+        start_epochs, w_g = load_models(w_locals, w_glob, masks, 0, path, y_vals, x_vals)
         x_vals = x_vals + [i for i in range(start_epochs, args.epochs_end, args.epochs_step)]
         net_glob.load_state_dict(w_g)
         net_glob.eval()
@@ -286,7 +286,7 @@ if __name__ == '__main__':
                 y_vals['loss'].append(loss_test)
             if(iter % 10) == 0:
                 #y_vals[args.pruner].append(0)
-                save_models(w_locals, w_glob, masks, iter, path, y_vals, x_vals, save_dir)
+                save_models(w_locals, w_glob, masks, iter, path, y_vals, x_vals)
 
     print('test accuracy: ', y_vals['acc'])
     print('test loss: ', y_vals['loss'])
