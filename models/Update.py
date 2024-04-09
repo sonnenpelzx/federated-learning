@@ -74,7 +74,7 @@ class LocalUpdate(object):
             epoch_loss.append(sum(batch_loss)/len(batch_loss))
         if(self.args.pruner == 'fedspa'):
             pruner = pruners.FedSpa(net, self.args.device)
-            mask = pruner.nextMask(net, mask, self.args.compression, train_iter, self.args.epochs)
+            mask = pruner.nextMask(net, mask, self.args.compression, train_iter, self.args.epochs_end)
 
         return net.state_dict(), sum(epoch_loss) / len(epoch_loss), mask
 

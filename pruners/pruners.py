@@ -115,23 +115,28 @@ class FedSpa(Pruner):
             m = mask[i]
             n = torch.numel(param)
             #define the number of additional parameters pruned via conise annialing
-            k = int(0.05/2 * (1+ math.cos(training_iter * math.pi / n_training_iter))*(1-sparsity)*n)
+            k = int(0.3/2 * (1+ math.cos(training_iter * math.pi / n_training_iter))*(1-sparsity)*n)
             #prune the k parameters with the smallest absolute value
+            before = m.detach().cpu().numpy().sum()
             if k > 0:
                 remaining_params = int(m.detach().cpu().numpy().sum())
                 if k >= remaining_params:
                     k = remaining_params
-                score = torch.clone(param.data).detach().abs_()
-                threshold, _ = torch.kthvalue(torch.flatten(score), k+(n-remaining_params))
+                score = torch.clone(param.data.mul(m)).detach().abs_().mul(-1)
+                _, indeces1 = torch.topk(torch.flatten(score), k+n-remaining_params)
+                unreavel_indeces = torch.unravel_index(indeces1, m.shape)
+                m[unreavel_indeces] = 0
+                #grow the k parameters with the highest gradients
                 zero = torch.tensor([0]).to(self.device)
                 one = torch.tensor([1.]).to(self.device)
-                m.copy_(torch.where(score <= threshold, zero, one))
-                #grow the k parameters with the highest gradients
                 m_inverse = torch.where(m == zero, one, zero)
-                masked_gradients = param.grad.mul(m_inverse)
-                _, indexes = torch.topk(torch.flatten(masked_gradients), k)
-                unreavel_indexes = torch.unravel_index(indexes, m.shape)
-                m[unreavel_indexes] = 1
+                masked_gradients = param.grad.mul(m_inverse).add(m_inverse)
+                _, indeces = torch.topk(torch.flatten(masked_gradients).abs(), k)
+                unreavel_indeces = torch.unravel_index(indeces, m.shape)
+                m[unreavel_indeces] = 1
+                after = m.detach().cpu().numpy().sum()
+                if before - after != 0:
+                    print("k", k, "before - after", before - after, "before", before, "after", after)
         return mask
 
 class SynFlow(Pruner):

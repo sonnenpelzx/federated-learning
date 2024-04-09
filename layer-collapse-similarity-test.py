@@ -29,7 +29,7 @@ from utils.prune_parameters import *
 from numpy import random
 import json
 
-def save_models(w_locals, w_global, masks, iters, path):
+def save_models(w_locals, w_global, masks, iters, path, y_vals, x_vals, save_vals):
     save_dir = f"{path}/models"
     os.makedirs(save_dir, exist_ok=True)
     if os.path.exists(f"{save_dir}/iters.json"):
@@ -42,11 +42,13 @@ def save_models(w_locals, w_global, masks, iters, path):
     for i in range(len(w_locals)):
         torch.save(masks[i], f"{save_dir}/mask{i}.pth")
     torch.save(w_global, f"{save_dir}/global.pth")
+    np.savez(f"{save_vals}/similarity_test_loss_{args.pruner}_{args.prune_epochs}_{args.compensation}_{args.dataset}_{args.model}_{args.iid}_{args.p}_{args.num_users}_{args.epochs_start}_{args.epochs_end}_{time}", y = np.array(y_vals['loss']), x = np.array(x_vals))
+    np.savez(f"{save_vals}/similarity_test_acc_{args.pruner}_{args.prune_epochs}_{args.compensation}_{args.dataset}_{args.model}_{args.iid}_{args.p}_{args.num_users}_{args.epochs_start}_{args.epochs_end}_{time}", y = np.array(y_vals['acc']), x = np.array(x_vals))
     json_data = {'iters': iters}
     with open(f"{save_dir}/iters.json", 'w') as file:
         json.dump(json_data, file)
 
-def load_models(w_locals, w_global, masks, iters, path):
+def load_models(w_locals, w_global, masks, iters, path, y_vals, x_vals, save_vals):
     save_dir = f"{path}/models"
     with open(f"{save_dir}/iters.json", 'r') as file:
         data = json.load(file)
@@ -57,7 +59,12 @@ def load_models(w_locals, w_global, masks, iters, path):
         w_locals[i] = torch.load(f"{save_dir}/{i}.pth")
     for i in range(len(w_locals)):
         masks[i] = torch.load(f"{save_dir}/mask{i}.pth")
-    return data["iters"], w_global
+    loss = np.load(f"{save_vals}/similarity_test_loss_{args.pruner}_{args.prune_epochs}_{args.compensation}_{args.dataset}_{args.model}_{args.iid}_{args.p}_{args.num_users}_{args.epochs_start}_{args.epochs_end}_{time}")
+    acc = np.load(f"{save_vals}/similarity_test_acc_{args.pruner}_{args.prune_epochs}_{args.compensation}_{args.dataset}_{args.model}_{args.iid}_{args.p}_{args.num_users}_{args.epochs_start}_{args.epochs_end}_{time}")
+    y_vals['loss'] = loss['y']
+    y_vals['acc'] = acc['y']
+    x_vals = acc['x']
+    return data["iters"] + 1, w_global
 
 def save_path(args):
     pruner = args.pruner
@@ -81,7 +88,7 @@ def save_path(args):
         comp = "comp"
     else:
         comp = "nocomp"
-    path = f"../save/results/{pruner}/{pruner}-p{p}-spar{sparsity}-{comp}"
+    path = f"./save/results/{pruner}/{pruner}-p{p}-spar{sparsity}-{comp}"
     return path
 
 def get_successful_users(p, num_users):
@@ -155,6 +162,13 @@ if __name__ == '__main__':
     print(torch.cuda.get_device_name(0))
     path = save_path(args)
     print(path)
+    now = datetime.datetime.now()
+    date = now.strftime("%Y_%m_%d")
+    time = now.strftime("%H_%M_%S")
+
+    # Create the directory if it doesn't exist
+    save_dir = f"{path}/{date}"
+    os.makedirs(save_dir, exist_ok=True)
 
     seeds = [0]
     x_vals = [i for i in range(args.epochs_start, args.epochs_end, args.epochs_step)]
@@ -171,8 +185,8 @@ if __name__ == '__main__':
         # load dataset and split users
         if args.dataset == 'mnist':
             trans_mnist = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))])
-            dataset_train = datasets.MNIST('../data/mnist/', train=True, download=True, transform=trans_mnist)
-            dataset_test = datasets.MNIST('../data/mnist/', train=False, download=True, transform=trans_mnist)
+            dataset_train = datasets.MNIST('./data/mnist/', train=True, download=True, transform=trans_mnist)
+            dataset_test = datasets.MNIST('./data/mnist/', train=False, download=True, transform=trans_mnist)
             # sample users
             if args.iid:
                 dict_users = mnist_iid(dataset_train, args.num_users)
@@ -180,8 +194,8 @@ if __name__ == '__main__':
                 dict_users = mnist_noniid(dataset_train, args.num_users)
         elif args.dataset == 'cifar':
             trans_cifar = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
-            dataset_train = datasets.CIFAR10('../data/cifar', train=True, download=True, transform=trans_cifar)
-            dataset_test = datasets.CIFAR10('../data/cifar', train=False, download=True, transform=trans_cifar)
+            dataset_train = datasets.CIFAR10('./data/cifar', train=True, download=True, transform=trans_cifar)
+            dataset_test = datasets.CIFAR10('./data/cifar', train=False, download=True, transform=trans_cifar)
             if args.iid:
                 dict_users = cifar_iid(dataset_train, args.num_users)
             else:
@@ -227,11 +241,13 @@ if __name__ == '__main__':
         net_best = None
         best_loss = None
         val_acc_list, net_list = [], []
-        masks = [randomMask(net_glob, args.device, args.compression) for _ in range(args.num_users)]
+        mask = randomMask(net_glob, args.device, args.compression)
+        masks = [ mask for _ in range(args.num_users)]
         print('mask', len(masks), len(masks[0]), type(masks[0]), masks[0][0].size()) # Shape = 100 x 6 x 400 x 3072
         w_locals = [copy.deepcopy(w_glob) for i in range(args.num_users)]
-        save_models(w_locals, w_glob, masks, 0, path)
-        start_epochs, w_g = load_models(w_locals, w_glob, masks, 0, path)
+        save_models(w_locals, w_glob, masks, 0, path, y_vals, x_vals, save_dir)
+        start_epochs, w_g = load_models(w_locals, w_glob, masks, 0, path, y_vals, x_vals, save_dir)
+        x_vals = x_vals + [i for i in range(start_epochs, args.epochs_end, args.epochs_step)]
         net_glob.load_state_dict(w_g)
         net_glob.eval()
         for iter in range(start_epochs, args.epochs_end):
@@ -268,8 +284,9 @@ if __name__ == '__main__':
 
                 y_vals['acc'].append(acc_test.item())
                 y_vals['loss'].append(loss_test)
+            if(iter % 10) == 0:
                 #y_vals[args.pruner].append(0)
-                save_models(w_locals, w_glob, masks, iter, path)
+                save_models(w_locals, w_glob, masks, iter, path, y_vals, x_vals, save_dir)
 
     print('test accuracy: ', y_vals['acc'])
     print('test loss: ', y_vals['loss'])
@@ -280,13 +297,6 @@ if __name__ == '__main__':
     plt.ylabel('Top-1 Accuracy')
     plt.title('')
 
-    now = datetime.datetime.now()
-    date = now.strftime("%Y_%m_%d")
-    time = now.strftime("%H_%M_%S")
-
-    # Create the directory if it doesn't exist
-    save_dir = f"{path}/{date}"
-    os.makedirs(save_dir, exist_ok=True)
 
     # Save the plot
     plt.savefig(f"{save_dir}/similarity_test_acc_{args.pruner}_{args.prune_epochs}_{args.compensation}_{args.dataset}_{args.model}_{args.iid}_{args.p}_{args.num_users}_{args.epochs_start}_{args.epochs_end}_{time}.png")
