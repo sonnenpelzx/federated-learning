@@ -45,8 +45,6 @@ class LocalUpdate(object):
         pruner = prune_methods[self.args.pruner](net, self.args.device)
         if(self.args.pruner == 'fedspa'):
             pruner.use_mask(net,input_dim, mask)
-        else:
-            prune(pruner, self.args.compression, self.args.prune_epochs, net, input_dim)
         net.train()
         return mask
 

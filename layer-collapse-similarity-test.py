@@ -28,6 +28,8 @@ import torchvision.models as models
 from utils.prune_parameters import *
 from numpy import random
 import json
+from pruners.prune import *
+from pruners import pruners
 
 def save_models(w_locals, w_global, masks, iters, path, y_vals, x_vals, args):
     save_dir = f"{path}/models"
@@ -154,6 +156,20 @@ def similarity_based_compensation(w_locals, users_received, args, sm):
     print(similarity_matrix)
     return similarity_matrix
 
+def prune_global(net, args, input_dim):
+    net.eval()
+    prune_methods = {
+            'mag' : pruners.Mag,
+            'synflow' : pruners.SynFlow,
+            'fedspa': pruners.FedSpa,
+        }
+    pruner = prune_methods[args.pruner](net, args.device)
+    if(args.pruner == 'fedspa'):
+        return
+    else:
+        prune(pruner, args.compression, args.prune_epochs, net, list(input_dim))
+    net.train()
+
 if __name__ == '__main__':
     # parse args
     args = args_parser()
@@ -254,6 +270,8 @@ if __name__ == '__main__':
             loss_locals = []
             idxs_users = get_successful_users(args.p, args.num_users) 
             print('RANDOM USER INDICES', idxs_users)
+            img_size = dataset_train[0][0].shape
+            prune_global(net_glob, args, img_size)
             for idx in idxs_users:
                 local = LocalUpdate(args=args, dataset=dataset_train, idxs=dict_users[idx])
                 w, loss, mask = local.train(net=copy.deepcopy(net_glob).to(args.device), mask=masks[idx], train_iter=iter)
