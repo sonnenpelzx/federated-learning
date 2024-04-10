@@ -61,9 +61,9 @@ def load_models(w_locals, w_global, masks, iters, path, y_vals, x_vals, args):
         masks[i] = torch.load(f"{save_dir}/mask{i}.pth")
     loss = np.load(f"{save_dir}/similarity_test_loss_{args.pruner}_{args.prune_epochs}_{args.compensation}_{args.dataset}_{args.model}_{args.iid}_{args.p}_{args.num_users}_{args.epochs_start}_{args.epochs_end}.npz")
     acc = np.load(f"{save_dir}/similarity_test_acc_{args.pruner}_{args.prune_epochs}_{args.compensation}_{args.dataset}_{args.model}_{args.iid}_{args.p}_{args.num_users}_{args.epochs_start}_{args.epochs_end}.npz")
-    y_vals['loss'] = loss['y']
-    y_vals['acc'] = acc['y']
-    x_vals = acc['x']
+    y_vals['loss'] = list(loss['y'])
+    y_vals['acc'] = list(acc['y'])
+    x_vals = list(acc['x'])
     return data["iters"] + 1, w_global
 
 def save_path(args):
