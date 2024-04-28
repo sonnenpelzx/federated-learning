@@ -40,12 +40,10 @@ def save_models(w_locals, w_global, masks, iters, path, y_vals, x_vals, args):
         if data["iters"] > iters:
             return
     for i in range(len(w_locals)):
-        torch.save(w_locals[i], f"{save_dir}/{i}.pth")
-    for i in range(len(w_locals)):
         torch.save(masks[i], f"{save_dir}/mask{i}.pth")
     torch.save(w_global, f"{save_dir}/global.pth")
-    np.savez(f"{save_dir}/similarity_test_loss_{args.pruner}_{args.prune_epochs}_{args.compensation}_{args.dataset}_{args.model}_{args.iid}_{args.p}_{args.num_users}_{args.epochs_start}_{args.epochs_end}", y = np.array(y_vals['loss']), x = np.array(x_vals))
-    np.savez(f"{save_dir}/similarity_test_acc_{args.pruner}_{args.prune_epochs}_{args.compensation}_{args.dataset}_{args.model}_{args.iid}_{args.p}_{args.num_users}_{args.epochs_start}_{args.epochs_end}", y = np.array(y_vals['acc']), x = np.array(x_vals))
+    np.savez(f"{save_dir}/similarity_test_loss_{args.pruner}_{args.prune_epochs}_{args.compensation}_{args.dataset}_{args.model}_{args.iid}_{args.p}_{args.num_users}_{args.epochs_start}_{200}", y = np.array(y_vals['loss']), x = np.array(x_vals))
+    np.savez(f"{save_dir}/similarity_test_acc_{args.pruner}_{args.prune_epochs}_{args.compensation}_{args.dataset}_{args.model}_{args.iid}_{args.p}_{args.num_users}_{args.epochs_start}_{200}", y = np.array(y_vals['acc']), x = np.array(x_vals))
     json_data = {'iters': iters}
     with open(f"{save_dir}/iters.json", 'w') as file:
         json.dump(json_data, file)
@@ -58,21 +56,22 @@ def load_models(w_locals, w_global, masks, iters, path, y_vals, x_vals, args):
         return iters, w_global
     w_global = torch.load(f"{save_dir}/global.pth")
     for i in range(len(w_locals)):
-        w_locals[i] = torch.load(f"{save_dir}/{i}.pth")
-    for i in range(len(w_locals)):
         masks[i] = torch.load(f"{save_dir}/mask{i}.pth")
-    loss = np.load(f"{save_dir}/similarity_test_loss_{args.pruner}_{args.prune_epochs}_{args.compensation}_{args.dataset}_{args.model}_{args.iid}_{args.p}_{args.num_users}_{args.epochs_start}_{args.epochs_end}.npz")
-    acc = np.load(f"{save_dir}/similarity_test_acc_{args.pruner}_{args.prune_epochs}_{args.compensation}_{args.dataset}_{args.model}_{args.iid}_{args.p}_{args.num_users}_{args.epochs_start}_{args.epochs_end}.npz")
+    loss = np.load(f"{save_dir}/similarity_test_loss_{args.pruner}_{args.prune_epochs}_{args.compensation}_{args.dataset}_{args.model}_{args.iid}_{args.p}_{args.num_users}_{args.epochs_start}_{200}.npz")
+    acc = np.load(f"{save_dir}/similarity_test_acc_{args.pruner}_{args.prune_epochs}_{args.compensation}_{args.dataset}_{args.model}_{args.iid}_{args.p}_{args.num_users}_{args.epochs_start}_{200}.npz")
     y_vals['loss'] = list(loss['y'])
     y_vals['acc'] = list(acc['y'])
     x_vals = list(acc['x'])
-    return data["iters"] + 1, w_global
+    return (data['iters'] + 1), w_global
 
 def save_path(args):
     pruner = args.pruner
     sparsity = 1 - args.compression**(-1)
     p = args.p
     comp = ""
+    iid = ""
+    if args.iid:
+        iid = "-iid"
     if args.p == 1:
         p = "1"
     else:
@@ -90,10 +89,12 @@ def save_path(args):
         comp = "comp"
     else:
         comp = "nocomp"
-    path = f"../save/results/{pruner}/{pruner}-p{p}-spar{sparsity}-{comp}"
+    path = f"../save/results/{pruner}/{pruner}-p{p}-spar{sparsity}-{comp}{iid}"
     return path
 
 def get_successful_users(p, num_users):
+    if p == 1:
+        return list(range(num_users))
     group1 = []
     group2 = []
     for i in range(0, num_users//2):
@@ -133,22 +134,24 @@ def similarity_score(u: int,v: int, w_locals, args) -> float:
     # print(u, v, 'distance', distance)
     # print('w_v', u, v, type(w_v), w_v.keys())
     # print('w_v layer 0',  type(w_v['layers.0.weight']), w_v['layers.0.weight'] )
-    return -distance
+    return distance
 
 def similarity_based_compensation(w_locals, users_received, args, sm):
+    dc = 0
     similarity_matrix = [i for i in range(len(w_locals))]
     for u in range(args.num_users):
-        if u in users_received:
-            continue
 
         # find the most similar received / updated user
         most_similar = users_received[0]
         for neighbor in users_received:
-            # print('u, v, most_similar', u, neighbor, most_similar, similarity_score(u, neighbor, w_locals), similarity_score(u, most_similar, w_locals))
-            similarity = similarity_score(u, neighbor, w_locals, args)
-            sm[u][neighbor] = similarity.item() * -1
-            sm[neighbor][u] = similarity.item() * -1
-            if similarity > sm[u][most_similar]:
+            if neighbor == u:
+                most_similar = u
+            elif neighbor in users_received:
+                similarity = similarity_score(u, neighbor, w_locals, args)
+                sm[u][neighbor] = similarity.item()
+                sm[neighbor][u] = similarity.item()
+                most_similar = u
+            elif (sm[u][neighbor]) < (sm[u][most_similar]):
                 most_similar = neighbor
 
         # update the similarity matrix
@@ -190,7 +193,6 @@ if __name__ == '__main__':
     x_vals = [i for i in range(args.epochs_start, args.epochs_end, args.epochs_step)]
     y_vals = {'acc': [], 'loss': []}
     sm = [[0 for _ in range(args.num_users)] for _ in range(args.num_users)]
-
     for seed in seeds:
         # set random seed
         np.random.seed(seed)
@@ -213,7 +215,7 @@ if __name__ == '__main__':
             dataset_train = datasets.CIFAR10('./data/cifar', train=True, download=True, transform=trans_cifar)
             dataset_test = datasets.CIFAR10('./data/cifar', train=False, download=True, transform=trans_cifar)
             if args.iid:
-                dict_users = cifar_iid(dataset_train, args.num_users)
+                dict_users, train_set = cifar_iid(dataset_train, args.num_users)
             else:
                 dict_users, train_set = cifar_noniid(dataset_train, args.num_users)
         else:
@@ -261,9 +263,10 @@ if __name__ == '__main__':
         masks = [ mask for _ in range(args.num_users)]
         print('mask', len(masks), len(masks[0]), type(masks[0]), masks[0][0].size()) # Shape = 100 x 6 x 400 x 3072
         w_locals = [copy.deepcopy(w_glob) for i in range(args.num_users)]
-        save_models(w_locals, w_glob, masks, 0, path, y_vals, x_vals, args)
-        start_epochs, w_g = load_models(w_locals, w_glob, masks, 0, path, y_vals, x_vals, args)
-        x_vals = x_vals + [i for i in range(start_epochs, args.epochs_end, args.epochs_step)]
+        save_models(w_locals, w_glob, masks, -1, path, y_vals, x_vals, args)
+        start_epochs, w_g = load_models(w_locals, w_glob, masks, -1
+                                        , path, y_vals, x_vals, args)
+        x_vals = x_vals + [i for i in range(x_vals[-1] + args.epochs_step, args.epochs_end, args.epochs_step)]
         net_glob.load_state_dict(w_g)
         net_glob.eval()
         for iter in range(start_epochs, args.epochs_end):
@@ -294,9 +297,10 @@ if __name__ == '__main__':
             loss_avg = sum(loss_locals) / len(loss_locals)
             print('Round {:3d}, Average loss {:.3f}'.format(iter, loss_avg))
             loss_train.append(loss_avg)
-            if (iter - args.epochs_start) % args.epochs_step == 0 and iter >= args.epochs_start:
+            if iter % args.epochs_step == 0 and iter >= args.epochs_start:
                 net_glob.eval()
-                acc_test, loss_test = test_img(net_glob, dataset_train, args, train_set)
+                #acc_test, loss_test = test_img(net_glob, dataset_train, args, train_set)
+                acc_test, loss_test = test_img(net_glob, dataset_test, args, list(range(len(dataset_test))))
                 print("Testing accuracy: {:.2f}".format(acc_test))
                 print("Testing loss: {:.2f}".format(loss_test))
 
@@ -308,7 +312,13 @@ if __name__ == '__main__':
 
     print('test accuracy: ', y_vals['acc'])
     print('test loss: ', y_vals['loss'])
+    print('x_vals', x_vals)
+    save_models(w_locals, w_glob, masks, args.epochs_end - 1, path, y_vals, x_vals, args)
+    np.savez(f"{save_dir}/similarity_test_loss_{args.pruner}_{args.prune_epochs}_{args.compensation}_{args.dataset}_{args.model}_{args.iid}_{args.p}_{args.num_users}_{args.epochs_start}_{args.epochs_end}_{time}", y = np.array(y_vals['loss']), x = np.array(x_vals))
+    np.savez(f"{save_dir}/similarity_test_acc_{args.pruner}_{args.prune_epochs}_{args.compensation}_{args.dataset}_{args.model}_{args.iid}_{args.p}_{args.num_users}_{args.epochs_start}_{args.epochs_end}_{time}", y = np.array(y_vals['acc']), x = np.array(x_vals))
     # Plot both charts on the same axis
+    print(len(y_vals))
+    print(len(x_vals))
     plt.figure()
     plt.plot(x_vals, y_vals['acc'])
     plt.xlabel('Communication Rounds')
@@ -325,8 +335,7 @@ if __name__ == '__main__':
     plt.ylabel('Loss')
     plt.title('')
     plt.savefig(f"{save_dir}/similarity_test_loss_{args.pruner}_{args.prune_epochs}_{args.compensation}_{args.dataset}_{args.model}_{args.iid}_{args.p}_{args.num_users}_{args.epochs_start}_{args.epochs_end}_{time}.png")
-    np.savez(f"{save_dir}/similarity_test_loss_{args.pruner}_{args.prune_epochs}_{args.compensation}_{args.dataset}_{args.model}_{args.iid}_{args.p}_{args.num_users}_{args.epochs_start}_{args.epochs_end}_{time}", y = np.array(y_vals['loss']), x = np.array(x_vals))
-    np.savez(f"{save_dir}/similarity_test_acc_{args.pruner}_{args.prune_epochs}_{args.compensation}_{args.dataset}_{args.model}_{args.iid}_{args.p}_{args.num_users}_{args.epochs_start}_{args.epochs_end}_{time}", y = np.array(y_vals['acc']), x = np.array(x_vals))
+    plt.figure()
     plt.imshow(np.array(sm), cmap='viridis')  # cmap specifies the colormap (color scheme)
     plt.colorbar() 
     plt.savefig(f"{save_dir}/sm_{args.pruner}_{args.prune_epochs}_{args.compensation}_{args.dataset}_{args.model}_{args.iid}_{args.p}_{args.num_users}_{args.epochs_start}_{args.epochs_end}_{time}.png")

@@ -56,12 +56,15 @@ def cifar_iid(dataset, num_users):
     :param num_users:
     :return: dict of image index
     """
+    train_set = np.array([0])
     num_items = int(len(dataset)/num_users)
     dict_users, all_idxs = {}, [i for i in range(len(dataset))]
     for i in range(num_users):
         dict_users[i] = set(np.random.choice(all_idxs, num_items, replace=False))
         all_idxs = list(set(all_idxs) - dict_users[i])
-    return dict_users
+        choice = np.random.choice(list(dict_users[i]), int(len(dict_users[i])*0.1), replace=False)
+        train_set = np.concatenate([choice, train_set])
+    return dict_users, set(train_set)
 
 def cifar_noniid(dataset, num_users):
     dict_users = {}

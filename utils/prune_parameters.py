@@ -36,5 +36,4 @@ def randomMask(model, device, compression):
             m.view(-1)[indices] = 0
             m = m.to(device)
             masks.append(m)
-    
     return masks

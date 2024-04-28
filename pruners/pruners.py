@@ -108,14 +108,27 @@ class FedSpa(Pruner):
     def score(self, net, input_dim, t=0):
         for _, p in self.mask_parameters:
             self.scores[id(p)] = torch.clone(p.data).detach().abs_()
+            
     def nextMask(self, net, mask, compression, training_iter, n_training_iter):
+
+        def unravel_index(indices, shape):
+            if len(shape) == 0:
+                return ()
+        
+            unraveled_indices = []
+            for s in reversed(shape):
+                unraveled_indices.append(indices % s)
+                indices //= s
+        
+            return tuple(reversed(unraveled_indices))
+        
         sparsity =1- compression ** (-1)
         for i in range(len(self.mask_parameters)):
             mask_p, param = self.mask_parameters[i]
             m = mask[i]
             n = torch.numel(param)
             #define the number of additional parameters pruned via conise annialing
-            k = int(0.3/2 * (1+ math.cos(training_iter * math.pi / n_training_iter))*(1-sparsity)*n)
+            k = int(0.05/2 * (1+ math.cos(training_iter * math.pi / n_training_iter))*(1-sparsity)*n)
             #prune the k parameters with the smallest absolute value
             before = m.detach().cpu().numpy().sum()
             if k > 0:
@@ -124,7 +137,7 @@ class FedSpa(Pruner):
                     k = remaining_params
                 score = torch.clone(param.data.mul(m)).detach().abs_().mul(-1)
                 _, indeces1 = torch.topk(torch.flatten(score), k+n-remaining_params)
-                unreavel_indeces = torch.unravel_index(indeces1, m.shape)
+                unreavel_indeces = unravel_index(indeces1, m.shape)
                 m[unreavel_indeces] = 0
                 #grow the k parameters with the highest gradients
                 zero = torch.tensor([0]).to(self.device)
@@ -132,7 +145,7 @@ class FedSpa(Pruner):
                 m_inverse = torch.where(m == zero, one, zero)
                 masked_gradients = param.grad.mul(m_inverse).add(m_inverse)
                 _, indeces = torch.topk(torch.flatten(masked_gradients).abs(), k)
-                unreavel_indeces = torch.unravel_index(indeces, m.shape)
+                unreavel_indeces = unravel_index(indeces, m.shape)
                 m[unreavel_indeces] = 1
                 after = m.detach().cpu().numpy().sum()
                 if before - after != 0:
